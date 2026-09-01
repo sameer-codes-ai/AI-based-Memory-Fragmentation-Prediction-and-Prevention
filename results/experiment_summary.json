@@ -1,0 +1,645 @@
+{
+  "model_comparison": {
+    "B1: Static Threshold": {
+      "mae_t1": 0.0032,
+      "mae_t5": 0.0099,
+      "mae_t10": 0.0166,
+      "mae_t30": 0.0349,
+      "r2_t10": 0.9898
+    },
+    "B2: Moving Average": {
+      "mae_t1": 0.0086,
+      "mae_t5": 0.0204,
+      "mae_t10": 0.0368,
+      "mae_t30": 0.057,
+      "r2_t10": 0.966
+    },
+    "B3: Linear Regression": {
+      "mae_t1": 0.0035,
+      "mae_t5": 0.0104,
+      "mae_t10": 0.0157,
+      "mae_t30": 0.0238,
+      "r2_t10": 0.9926
+    },
+    "B4: Random Forest": {
+      "mae_t1": 0.0043,
+      "mae_t5": 0.0088,
+      "mae_t10": 0.0116,
+      "mae_t30": 0.0155,
+      "r2_t10": 0.9958
+    },
+    "B5: Gradient Boosted Trees": {
+      "mae_t1": 0.0168,
+      "mae_t5": 0.021,
+      "mae_t10": 0.0242,
+      "mae_t30": 0.0299,
+      "r2_t10": 0.9916
+    },
+    "M1: Temporal LSTM": {
+      "mae_t1": 0.0067,
+      "mae_t5": 0.0105,
+      "mae_t10": 0.0136,
+      "mae_t30": 0.0208,
+      "r2_t10": 0.9939
+    },
+    "M2: Temporal GRU": {
+      "mae_t1": 0.0076,
+      "mae_t5": 0.0104,
+      "mae_t10": 0.0144,
+      "mae_t30": 0.0218,
+      "r2_t10": 0.9935
+    },
+    "M3: Temporal TCN": {
+      "mae_t1": 0.0078,
+      "mae_t5": 0.0124,
+      "mae_t10": 0.0146,
+      "mae_t30": 0.0199,
+      "r2_t10": 0.994
+    }
+  },
+  "system_simulation": [
+    {
+      "condition_name": "E1: Reactive Baseline",
+      "workload_name": "microservice",
+      "total_events": 25000,
+      "mean_f1": 0.0029490063439000153,
+      "peak_f1": 0.020051366154036576,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
+      "mean_utilization": 0.00723482177734375,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E2: Always-Proactive",
+      "workload_name": "microservice",
+      "total_events": 25000,
+      "mean_f1": 0.0013697386132719327,
+      "peak_f1": 0.06240613026819919,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 833,
+      "total_blocks_moved": 13773,
+      "total_bytes_moved_mb": 2.74542236328125,
+      "cumulative_pause_ms": 485.6395422363281,
+      "total_cost": 15032.157484472657,
+      "mean_utilization": 0.00723482177734375,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E3: Prediction Only",
+      "workload_name": "microservice",
+      "total_events": 25000,
+      "mean_f1": 0.0029490063439000153,
+      "peak_f1": 0.020051366154036576,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
+      "mean_utilization": 0.00723482177734375,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E4: ML + Threshold",
+      "workload_name": "microservice",
+      "total_events": 25000,
+      "mean_f1": 0.0029490063439000153,
+      "peak_f1": 0.020051366154036576,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
+      "mean_utilization": 0.00723482177734375,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E5: ML + Cost-Aware (PREFRAG)",
+      "workload_name": "microservice",
+      "total_events": 25000,
+      "mean_f1": 0.0029490063439000153,
+      "peak_f1": 0.020051366154036576,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
+      "mean_utilization": 0.00723482177734375,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E1: Reactive Baseline",
+      "workload_name": "scientific",
+      "total_events": 25000,
+      "mean_f1": 0.13347680054761896,
+      "peak_f1": 0.40111983075333135,
+      "severe_episodes_f1": 1,
+      "allocation_failures": 0,
+      "compactions_count": 1,
+      "total_blocks_moved": 33,
+      "total_bytes_moved_mb": 6.5966644287109375,
+      "cumulative_pause_ms": 1.3246664428710937,
+      "total_cost": 727.3597328857422,
+      "mean_utilization": 0.28324515065157096,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E2: Always-Proactive",
+      "workload_name": "scientific",
+      "total_events": 25000,
+      "mean_f1": 0.027971392429113874,
+      "peak_f1": 0.1542277222655961,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 833,
+      "total_blocks_moved": 39649,
+      "total_bytes_moved_mb": 8179.385467529297,
+      "cumulative_pause_ms": 1432.6835467529297,
+      "total_cost": 900185.0966935059,
+      "mean_utilization": 0.28324515065157096,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E3: Prediction Only",
+      "workload_name": "scientific",
+      "total_events": 25000,
+      "mean_f1": 0.13361372132688895,
+      "peak_f1": 0.40111983075333135,
+      "severe_episodes_f1": 1,
+      "allocation_failures": 0,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
+      "mean_utilization": 0.28324515065157096,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E4: ML + Threshold",
+      "workload_name": "scientific",
+      "total_events": 25000,
+      "mean_f1": 0.054483428106810596,
+      "peak_f1": 0.2806021353358392,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 192,
+      "total_blocks_moved": 11509,
+      "total_bytes_moved_mb": 2138.6370544433594,
+      "cumulative_pause_ms": 367.40870544433596,
+      "total_cost": 236496.16621088868,
+      "mean_utilization": 0.28324515065157096,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E5: ML + Cost-Aware (PREFRAG)",
+      "workload_name": "scientific",
+      "total_events": 25000,
+      "mean_f1": 0.13183724602365413,
+      "peak_f1": 0.3971596921028686,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 6,
+      "total_blocks_moved": 192,
+      "total_bytes_moved_mb": 34.9560546875,
+      "cumulative_pause_ms": 7.45560546875,
+      "total_cost": 3872.3192109375004,
+      "mean_utilization": 0.28324515065157096,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E1: Reactive Baseline",
+      "workload_name": "database",
+      "total_events": 25000,
+      "mean_f1": 0.8607648811960682,
+      "peak_f1": 0.9646149148793953,
+      "severe_episodes_f1": 23652,
+      "allocation_failures": 820,
+      "compactions_count": 5,
+      "total_blocks_moved": 1436,
+      "total_bytes_moved_mb": 12.315521240234375,
+      "cumulative_pause_ms": 10.911552124023437,
+      "total_cost": 2749.1991042480468,
+      "mean_utilization": 0.8643539232249662,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E2: Always-Proactive",
+      "workload_name": "database",
+      "total_events": 25000,
+      "mean_f1": 0.23544526237833618,
+      "peak_f1": 0.8726283072260279,
+      "severe_episodes_f1": 5130,
+      "allocation_failures": 166,
+      "compactions_count": 833,
+      "total_blocks_moved": 225196,
+      "total_bytes_moved_mb": 2039.1221008300781,
+      "cumulative_pause_ms": 1746.3922100830077,
+      "total_cost": 442506.23402016604,
+      "mean_utilization": 0.9082321354923008,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E3: Prediction Only",
+      "workload_name": "database",
+      "total_events": 25000,
+      "mean_f1": 0.8754156830093209,
+      "peak_f1": 0.9646149148793953,
+      "severe_episodes_f1": 24178,
+      "allocation_failures": 832,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
+      "mean_utilization": 0.8641256332817692,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E4: ML + Threshold",
+      "workload_name": "database",
+      "total_events": 25000,
+      "mean_f1": 0.8733500737850419,
+      "peak_f1": 0.9646149148793953,
+      "severe_episodes_f1": 24111,
+      "allocation_failures": 832,
+      "compactions_count": 1,
+      "total_blocks_moved": 277,
+      "total_bytes_moved_mb": 2.420440673828125,
+      "cumulative_pause_ms": 2.1270440673828124,
+      "total_cost": 535.0556881347657,
+      "mean_utilization": 0.8641256332817692,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E5: ML + Cost-Aware (PREFRAG)",
+      "workload_name": "database",
+      "total_events": 25000,
+      "mean_f1": 0.8609210850230862,
+      "peak_f1": 0.9646149148793953,
+      "severe_episodes_f1": 23658,
+      "allocation_failures": 820,
+      "compactions_count": 5,
+      "total_blocks_moved": 1425,
+      "total_bytes_moved_mb": 12.335372924804688,
+      "cumulative_pause_ms": 10.858537292480468,
+      "total_cost": 2740.174674584961,
+      "mean_utilization": 0.8643539232249662,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E1: Reactive Baseline",
+      "workload_name": "adversarial_churn",
+      "total_events": 25000,
+      "mean_f1": 0.0015204849359983182,
+      "peak_f1": 0.005188067444876765,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
+      "mean_utilization": 0.2449116015625,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E2: Always-Proactive",
+      "workload_name": "adversarial_churn",
+      "total_events": 25000,
+      "mean_f1": 0.0015185146829968235,
+      "peak_f1": 0.005188067444876765,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 833,
+      "total_blocks_moved": 25324,
+      "total_bytes_moved_mb": 12.78369140625,
+      "cumulative_pause_ms": 544.398369140625,
+      "total_cost": 27753.26393828125,
+      "mean_utilization": 0.2449116015625,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E3: Prediction Only",
+      "workload_name": "adversarial_churn",
+      "total_events": 25000,
+      "mean_f1": 0.0015204849359983182,
+      "peak_f1": 0.005188067444876765,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
+      "mean_utilization": 0.2449116015625,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E4: ML + Threshold",
+      "workload_name": "adversarial_churn",
+      "total_events": 25000,
+      "mean_f1": 0.0015204849359983182,
+      "peak_f1": 0.005188067444876765,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
+      "mean_utilization": 0.2449116015625,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    },
+    {
+      "condition_name": "E5: ML + Cost-Aware (PREFRAG)",
+      "workload_name": "adversarial_churn",
+      "total_events": 25000,
+      "mean_f1": 0.0015204849359983182,
+      "peak_f1": 0.005188067444876765,
+      "severe_episodes_f1": 0,
+      "allocation_failures": 0,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
+      "mean_utilization": 0.2449116015625,
+      "mae_t1": 0.0,
+      "mae_t5": 0.0,
+      "mae_t10": 0.0,
+      "mae_t30": 0.0,
+      "r2_t10": 0.0
+    }
+  ],
+  "cross_workload_generalization": {
+    "web_server": {
+      "mae_t10": 0.076,
+      "rmse_t10": 0.0847,
+      "r2_t10": -12.0243,
+      "in_domain": true
+    },
+    "database": {
+      "mae_t10": 0.4992,
+      "rmse_t10": 0.5292,
+      "r2_t10": -1.7244,
+      "in_domain": false
+    },
+    "scientific": {
+      "mae_t10": 0.7132,
+      "rmse_t10": 0.7674,
+      "r2_t10": -25.358,
+      "in_domain": false
+    },
+    "microservice": {
+      "mae_t10": 0.0673,
+      "rmse_t10": 0.0798,
+      "r2_t10": -60209.2123,
+      "in_domain": false
+    },
+    "adversarial_churn": {
+      "mae_t10": 0.0055,
+      "rmse_t10": 0.0212,
+      "r2_t10": -6191.6184,
+      "in_domain": false
+    }
+  },
+  "feature_ablation": {
+    "Full Model (All Features)": {
+      "mae_t10": 0.0136,
+      "r2_t10": 0.9939,
+      "delta_mae_pct": 0.0
+    },
+    "Ablate: Allocation Features": {
+      "mae_t10": 0.014,
+      "r2_t10": 0.9938,
+      "delta_mae_pct": 2.97
+    },
+    "Ablate: Deallocation Features": {
+      "mae_t10": 0.0143,
+      "r2_t10": 0.9937,
+      "delta_mae_pct": 4.74
+    },
+    "Ablate: Lifetime Features": {
+      "mae_t10": 0.015,
+      "r2_t10": 0.9932,
+      "delta_mae_pct": 9.97
+    },
+    "Ablate: Freespace Features": {
+      "mae_t10": 0.0298,
+      "r2_t10": 0.9742,
+      "delta_mae_pct": 119.16
+    },
+    "Ablate: Temporal Features": {
+      "mae_t10": 0.0141,
+      "r2_t10": 0.9939,
+      "delta_mae_pct": 3.47
+    },
+    "Ablate: Workload Features": {
+      "mae_t10": 0.0144,
+      "r2_t10": 0.9938,
+      "delta_mae_pct": 5.68
+    }
+  },
+  "top_features": [
+    [
+      "current_f1",
+      0.9368
+    ],
+    [
+      "current_f2",
+      0.0561
+    ],
+    [
+      "delta_f1",
+      0.002
+    ],
+    [
+      "free_count",
+      0.001
+    ],
+    [
+      "alloc_to_free_ratio",
+      0.0008
+    ],
+    [
+      "largest_free_block",
+      0.0007
+    ],
+    [
+      "active_alloc_count",
+      0.0002
+    ],
+    [
+      "active_payload_bytes",
+      0.0002
+    ],
+    [
+      "lifetime_mean",
+      0.0002
+    ],
+    [
+      "memory_utilization",
+      0.0002
+    ],
+    [
+      "free_size_std",
+      0.0002
+    ],
+    [
+      "total_free_bytes",
+      0.0002
+    ],
+    [
+      "delta_allocated_bytes",
+      0.0002
+    ],
+    [
+      "lifetime_std",
+      0.0001
+    ],
+    [
+      "alloc_size_std",
+      0.0001
+    ],
+    [
+      "delta_f2",
+      0.0001
+    ],
+    [
+      "alloc_size_max",
+      0.0001
+    ],
+    [
+      "free_rate",
+      0.0001
+    ],
+    [
+      "free_size_mean",
+      0.0001
+    ],
+    [
+      "alloc_size_mean",
+      0.0001
+    ],
+    [
+      "alloc_bytes_total",
+      0.0001
+    ],
+    [
+      "alloc_burstiness",
+      0.0001
+    ],
+    [
+      "free_bytes_total",
+      0.0001
+    ],
+    [
+      "current_f3",
+      0.0001
+    ],
+    [
+      "alloc_rate",
+      0.0001
+    ],
+    [
+      "call_stack_entropy",
+      0.0001
+    ],
+    [
+      "alloc_count",
+      0.0
+    ],
+    [
+      "short_lived_ratio",
+      0.0
+    ]
+  ]
+}

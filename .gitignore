@@ -1,0 +1,26 @@
+# Research Documentation
+docs/
+literature_review.md
+methodology.md
+novelty_analysis.md
+research_design.md
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS datasets & raw archives
+os datasets/
+*.tar.gz
+*.zip
+
+# OS specific files
+.DS_Store
+Thumbs.db

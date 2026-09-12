@@ -13,7 +13,7 @@ from src.simulator.heap_allocator import HeapAllocator, AllocationPolicy
 from src.simulator.compaction_engine import CompactionEngine
 from src.features.feature_extractor import FeatureExtractor, TemporalFeatureVector
 from src.models.baselines import StaticThresholdBaseline, MovingAverageBaseline, LinearRegressionBaseline, RandomForestBaseline
-from src.models.temporal_nn import SimpleMLPForecaster, TemporalForecasterLSTM
+from src.models.temporal_nn import TemporalForecasterLSTM
 from src.controller.cost_model import CostBenefitOptimizer
 from src.controller.policies import ReactivePolicy, AlwaysProactivePolicy, CostAwarePredictivePolicy
 
@@ -130,11 +130,13 @@ class TestPREFRAGModels(unittest.TestCase):
         p4 = b4.predict(X[80:])
         self.assertEqual(p4.shape, (20, 4))
 
-        # LSTM Forecaster
-        m1 = TemporalForecasterLSTM(input_dim=28, hidden_dim=16, output_dim=4)
+        # LSTM Forecaster (real recurrent model with sequence windowing)
+        m1 = TemporalForecasterLSTM(input_dim=28, hidden_dim=16, output_dim=4, seq_len=5, epochs=5)
         m1.fit(X[:80], Y[:80])
         pm1 = m1.predict(X[80:])
-        self.assertEqual(pm1.shape, (20, 4))
+        # Output rows = input_rows - seq_len + 1 due to sequence windowing
+        expected_rows = 20 - 5 + 1  # 16
+        self.assertEqual(pm1.shape, (expected_rows, 4))
 
 
 class TestPREFRAGController(unittest.TestCase):

@@ -3,8 +3,9 @@ PREFRAG: Experiment Runner Engine
 Executes conditions E1 - E5 across benchmark workloads and measures both ML and Systems metrics.
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass, asdict
+import math
 import numpy as np
 from ..traces.trace_schema import MemoryEvent, AllocationOp
 from ..traces.workload_generator import WorkloadGenerator, WorkloadFamily
@@ -135,24 +136,80 @@ class ExperimentRunner:
             pred_f1 = current_snap.f1_largest_free_ratio
             if forecaster is not None and len(snapshots) >= self.window_size:
                 try:
-                    # Construct single-step feature vector
+                    # Construct single-step feature vector using same logic as FeatureExtractor
                     sub_snaps = snapshots[-self.window_size:]
                     start_snap = sub_snaps[0]
                     allocs = [e for e in recent_events if e.op == AllocationOp.ALLOC]
                     frees = [e for e in recent_events if e.op == AllocationOp.FREE]
-                    
+
+                    # Group 1: Allocation statistics
                     alloc_sizes = [e.size for e in allocs]
-                    free_sizes = [e.size for e in frees]
+                    alloc_count = float(len(allocs))
+                    alloc_bytes = float(sum(alloc_sizes)) if alloc_sizes else 0.0
+                    alloc_mean = float(np.mean(alloc_sizes)) if alloc_sizes else 0.0
+                    alloc_std = float(np.std(alloc_sizes)) if len(alloc_sizes) > 1 else 0.0
+                    alloc_max = float(max(alloc_sizes)) if alloc_sizes else 0.0
                     duration = max(0.001, current_snap.timestamp - start_snap.timestamp)
+                    alloc_rate = alloc_bytes / duration
+
+                    # Group 2: Deallocation statistics
+                    free_sizes = [e.size for e in frees]
+                    free_count = float(len(frees))
+                    free_bytes = float(sum(free_sizes)) if free_sizes else 0.0
+                    free_mean = float(np.mean(free_sizes)) if free_sizes else 0.0
+                    free_std = float(np.std(free_sizes)) if len(free_sizes) > 1 else 0.0
+                    free_rate = free_bytes / duration
+
+                    # Group 3: Lifetime features (real computation, not hardcoded)
                     lifetimes = [e.lifetime for e in allocs if e.lifetime is not None]
-                    
+                    life_mean = float(np.mean(lifetimes)) if lifetimes else 0.0
+                    life_std = float(np.std(lifetimes)) if len(lifetimes) > 1 else 0.0
+                    tick_duration = duration / max(1, self.window_size)
+                    short_lived = sum(1 for l in lifetimes if l <= (10.0 * tick_duration))
+                    short_lived_ratio = float(short_lived) / max(1.0, float(len(lifetimes)))
+
+                    # Group 4: Free-space geometry
+                    f1 = current_snap.f1_largest_free_ratio
+                    f2 = current_snap.f2_free_block_entropy
+                    f3 = float(current_snap.f3_free_block_count)
+                    tot_free = float(current_snap.total_free_bytes)
+                    lfb = float(current_snap.largest_free_block)
+                    util = current_snap.memory_utilization
+
+                    # Group 5: Temporal dynamics
+                    delta_f1 = f1 - start_snap.f1_largest_free_ratio
+                    delta_f2 = f2 - start_snap.f2_free_block_entropy
+                    delta_alloc = float(current_snap.allocated_bytes - start_snap.allocated_bytes)
+
+                    # Burstiness: coefficient of variation of inter-arrival times
+                    if len(allocs) > 2:
+                        inter_times = np.diff([e.timestamp for e in allocs])
+                        burstiness = float(np.std(inter_times) / (np.mean(inter_times) + 1e-6))
+                    else:
+                        burstiness = 0.0
+
+                    alloc_free_ratio = alloc_count / max(1.0, free_count)
+
+                    # Group 6: Workload context
+                    active_alloc_count = float(current_snap.allocated_block_count)
+                    active_payload = float(current_snap.allocated_bytes)
+
+                    # Call stack entropy (real computation)
+                    stacks = [e.call_stack_hash for e in allocs if e.call_stack_hash is not None]
+                    if stacks:
+                        _, counts = np.unique(stacks, return_counts=True)
+                        p = counts / len(stacks)
+                        stack_entropy = float(-np.sum(p * np.log2(p + 1e-9)))
+                    else:
+                        stack_entropy = 0.0
+
                     feats = np.array([[
-                        float(len(allocs)), float(sum(alloc_sizes)), float(np.mean(alloc_sizes)) if alloc_sizes else 0.0, float(np.std(alloc_sizes)) if len(alloc_sizes) > 1 else 0.0, float(max(alloc_sizes)) if alloc_sizes else 0.0, float(sum(alloc_sizes))/duration,
-                        float(len(frees)), float(sum(free_sizes)), float(np.mean(free_sizes)) if free_sizes else 0.0, float(np.std(free_sizes)) if len(free_sizes) > 1 else 0.0, float(sum(free_sizes))/duration,
-                        float(np.mean(lifetimes)) if lifetimes else 0.0, float(np.std(lifetimes)) if len(lifetimes) > 1 else 0.0, 0.5,
-                        current_snap.f1_largest_free_ratio, current_snap.f2_free_block_entropy, float(current_snap.f3_free_block_count), float(current_snap.total_free_bytes), float(current_snap.largest_free_block), current_snap.memory_utilization,
-                        current_snap.f1_largest_free_ratio - start_snap.f1_largest_free_ratio, current_snap.f2_free_block_entropy - start_snap.f2_free_block_entropy, float(current_snap.allocated_bytes - start_snap.allocated_bytes), 0.1, float(len(allocs))/max(1.0, float(len(frees))),
-                        float(current_snap.allocated_block_count), float(current_snap.allocated_bytes), 1.0
+                        alloc_count, alloc_bytes, alloc_mean, alloc_std, alloc_max, alloc_rate,
+                        free_count, free_bytes, free_mean, free_std, free_rate,
+                        life_mean, life_std, short_lived_ratio,
+                        f1, f2, f3, tot_free, lfb, util,
+                        delta_f1, delta_f2, delta_alloc, burstiness, alloc_free_ratio,
+                        active_alloc_count, active_payload, stack_entropy
                     ]], dtype=np.float32)
 
                     preds = forecaster.predict(feats)

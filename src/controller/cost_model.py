@@ -67,8 +67,18 @@ class CostBenefitOptimizer:
         # Estimate compaction cost on current block state
         blocks_moved, bytes_moved, latency_ms, cost = self.compaction_engine.estimate_compaction_cost(blocks)
 
-        # Post-compaction, all free space is merged into one block, so F1 drops to ~0.0 (or negligible)
-        f1_after_compaction = 0.0
+        # Realistic post-compaction F1 estimate:
+        # After sliding compaction, all free space is merged into one contiguous tail block.
+        # However, in practice, alignment constraints and pinned objects prevent perfect compaction.
+        # We estimate residual fragmentation based on the number of allocated blocks.
+        allocated_blocks = [b for b in blocks if not b.is_free]
+        num_allocated = len(allocated_blocks)
+        if num_allocated > 0:
+            # Even after perfect compaction, there's minimal residual fragmentation
+            # from block alignment overhead (typically 0.01 - 0.05 for well-packed heaps)
+            f1_after_compaction = min(0.05, 0.005 * num_allocated)
+        else:
+            f1_after_compaction = 0.0
         reduction = max(0.0, predicted_future_f1 - f1_after_compaction)
         raw_benefit = reduction * self.benefit_scale
 

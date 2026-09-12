@@ -6,7 +6,6 @@ from .baselines import (
     GradientBoostingBaseline
 )
 from .temporal_nn import (
-    SimpleMLPForecaster,
     TemporalForecasterLSTM,
     TemporalForecasterGRU,
     TemporalForecasterTCN
@@ -18,7 +17,6 @@ __all__ = [
     "LinearRegressionBaseline",
     "RandomForestBaseline",
     "GradientBoostingBaseline",
-    "SimpleMLPForecaster",
     "TemporalForecasterLSTM",
     "TemporalForecasterGRU",
     "TemporalForecasterTCN"

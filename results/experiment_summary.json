@@ -36,25 +36,25 @@
       "r2_t10": 0.9916
     },
     "M1: Temporal LSTM": {
-      "mae_t1": 0.0067,
-      "mae_t5": 0.0105,
-      "mae_t10": 0.0136,
-      "mae_t30": 0.0208,
-      "r2_t10": 0.9939
+      "mae_t1": 0.0056,
+      "mae_t5": 0.0103,
+      "mae_t10": 0.014,
+      "mae_t30": 0.0204,
+      "r2_t10": 0.9937
     },
     "M2: Temporal GRU": {
-      "mae_t1": 0.0076,
-      "mae_t5": 0.0104,
-      "mae_t10": 0.0144,
-      "mae_t30": 0.0218,
-      "r2_t10": 0.9935
+      "mae_t1": 0.0079,
+      "mae_t5": 0.0139,
+      "mae_t10": 0.0159,
+      "mae_t30": 0.0219,
+      "r2_t10": 0.993
     },
     "M3: Temporal TCN": {
-      "mae_t1": 0.0078,
-      "mae_t5": 0.0124,
-      "mae_t10": 0.0146,
-      "mae_t30": 0.0199,
-      "r2_t10": 0.994
+      "mae_t1": 0.0063,
+      "mae_t5": 0.0113,
+      "mae_t10": 0.015,
+      "mae_t30": 0.0215,
+      "r2_t10": 0.9936
     }
   },
   "system_simulation": [
@@ -222,15 +222,15 @@
       "condition_name": "E4: ML + Threshold",
       "workload_name": "scientific",
       "total_events": 25000,
-      "mean_f1": 0.054483428106810596,
-      "peak_f1": 0.2806021353358392,
-      "severe_episodes_f1": 0,
+      "mean_f1": 0.13361372132688895,
+      "peak_f1": 0.40111983075333135,
+      "severe_episodes_f1": 1,
       "allocation_failures": 0,
-      "compactions_count": 192,
-      "total_blocks_moved": 11509,
-      "total_bytes_moved_mb": 2138.6370544433594,
-      "cumulative_pause_ms": 367.40870544433596,
-      "total_cost": 236496.16621088868,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
       "mean_utilization": 0.28324515065157096,
       "mae_t1": 0.0,
       "mae_t5": 0.0,
@@ -242,15 +242,15 @@
       "condition_name": "E5: ML + Cost-Aware (PREFRAG)",
       "workload_name": "scientific",
       "total_events": 25000,
-      "mean_f1": 0.13183724602365413,
-      "peak_f1": 0.3971596921028686,
-      "severe_episodes_f1": 0,
+      "mean_f1": 0.13361372132688895,
+      "peak_f1": 0.40111983075333135,
+      "severe_episodes_f1": 1,
       "allocation_failures": 0,
-      "compactions_count": 6,
-      "total_blocks_moved": 192,
-      "total_bytes_moved_mb": 34.9560546875,
-      "cumulative_pause_ms": 7.45560546875,
-      "total_cost": 3872.3192109375004,
+      "compactions_count": 0,
+      "total_blocks_moved": 0,
+      "total_bytes_moved_mb": 0.0,
+      "cumulative_pause_ms": 0.0,
+      "total_cost": 0.0,
       "mean_utilization": 0.28324515065157096,
       "mae_t1": 0.0,
       "mae_t5": 0.0,
@@ -322,16 +322,16 @@
       "condition_name": "E4: ML + Threshold",
       "workload_name": "database",
       "total_events": 25000,
-      "mean_f1": 0.8733500737850419,
-      "peak_f1": 0.9646149148793953,
-      "severe_episodes_f1": 24111,
-      "allocation_failures": 832,
-      "compactions_count": 1,
-      "total_blocks_moved": 277,
-      "total_bytes_moved_mb": 2.420440673828125,
-      "cumulative_pause_ms": 2.1270440673828124,
-      "total_cost": 535.0556881347657,
-      "mean_utilization": 0.8641256332817692,
+      "mean_f1": 0.2211229846291948,
+      "peak_f1": 0.869929026214255,
+      "severe_episodes_f1": 2760,
+      "allocation_failures": 136,
+      "compactions_count": 869,
+      "total_blocks_moved": 233572,
+      "total_bytes_moved_mb": 2167.7513732910156,
+      "cumulative_pause_ms": 1819.1351373291016,
+      "total_cost": 464515.4766746582,
+      "mean_utilization": 0.9088782108117275,
       "mae_t1": 0.0,
       "mae_t5": 0.0,
       "mae_t10": 0.0,
@@ -342,16 +342,16 @@
       "condition_name": "E5: ML + Cost-Aware (PREFRAG)",
       "workload_name": "database",
       "total_events": 25000,
-      "mean_f1": 0.8609210850230862,
-      "peak_f1": 0.9646149148793953,
-      "severe_episodes_f1": 23658,
-      "allocation_failures": 820,
-      "compactions_count": 5,
-      "total_blocks_moved": 1425,
-      "total_bytes_moved_mb": 12.335372924804688,
-      "cumulative_pause_ms": 10.858537292480468,
-      "total_cost": 2740.174674584961,
-      "mean_utilization": 0.8643539232249662,
+      "mean_f1": 0.22467335756202356,
+      "peak_f1": 0.869929026214255,
+      "severe_episodes_f1": 2738,
+      "allocation_failures": 148,
+      "compactions_count": 830,
+      "total_blocks_moved": 222560,
+      "total_bytes_moved_mb": 2068.542251586914,
+      "cumulative_pause_ms": 1734.6542251586914,
+      "total_cost": 442931.6844503174,
+      "mean_utilization": 0.9092945952897379,
       "mae_t1": 0.0,
       "mae_t5": 0.0,
       "mae_t10": 0.0,
@@ -461,71 +461,71 @@
   ],
   "cross_workload_generalization": {
     "web_server": {
-      "mae_t10": 0.076,
-      "rmse_t10": 0.0847,
-      "r2_t10": -12.0243,
+      "mae_t10": 0.0857,
+      "rmse_t10": 0.1042,
+      "r2_t10": -18.7256,
       "in_domain": true
     },
     "database": {
-      "mae_t10": 0.4992,
-      "rmse_t10": 0.5292,
-      "r2_t10": -1.7244,
+      "mae_t10": 0.7758,
+      "rmse_t10": 0.8251,
+      "r2_t10": -5.6239,
       "in_domain": false
     },
     "scientific": {
-      "mae_t10": 0.7132,
-      "rmse_t10": 0.7674,
-      "r2_t10": -25.358,
+      "mae_t10": 0.194,
+      "rmse_t10": 0.2553,
+      "r2_t10": -1.9166,
       "in_domain": false
     },
     "microservice": {
-      "mae_t10": 0.0673,
-      "rmse_t10": 0.0798,
-      "r2_t10": -60209.2123,
+      "mae_t10": 0.1802,
+      "rmse_t10": 0.2214,
+      "r2_t10": -463101.5625,
       "in_domain": false
     },
     "adversarial_churn": {
-      "mae_t10": 0.0055,
-      "rmse_t10": 0.0212,
-      "r2_t10": -6191.6184,
+      "mae_t10": 0.0003,
+      "rmse_t10": 0.0004,
+      "r2_t10": -1.5394,
       "in_domain": false
     }
   },
   "feature_ablation": {
     "Full Model (All Features)": {
-      "mae_t10": 0.0136,
-      "r2_t10": 0.9939,
+      "mae_t10": 0.014,
+      "r2_t10": 0.9937,
       "delta_mae_pct": 0.0
     },
     "Ablate: Allocation Features": {
-      "mae_t10": 0.014,
+      "mae_t10": 0.0135,
       "r2_t10": 0.9938,
-      "delta_mae_pct": 2.97
+      "delta_mae_pct": -3.84
     },
     "Ablate: Deallocation Features": {
-      "mae_t10": 0.0143,
+      "mae_t10": 0.0139,
       "r2_t10": 0.9937,
-      "delta_mae_pct": 4.74
+      "delta_mae_pct": -0.47
     },
     "Ablate: Lifetime Features": {
-      "mae_t10": 0.015,
-      "r2_t10": 0.9932,
-      "delta_mae_pct": 9.97
+      "mae_t10": 0.0136,
+      "r2_t10": 0.9938,
+      "delta_mae_pct": -2.68
     },
     "Ablate: Freespace Features": {
-      "mae_t10": 0.0298,
-      "r2_t10": 0.9742,
-      "delta_mae_pct": 119.16
+      "mae_t10": 0.0343,
+      "r2_t10": 0.966,
+      "delta_mae_pct": 145.12
     },
     "Ablate: Temporal Features": {
-      "mae_t10": 0.0141,
-      "r2_t10": 0.9939,
-      "delta_mae_pct": 3.47
+      "mae_t10": 0.0139,
+      "r2_t10": 0.9937,
+      "delta_mae_pct": -0.66
     },
     "Ablate: Workload Features": {
-      "mae_t10": 0.0144,
-      "r2_t10": 0.9938,
-      "delta_mae_pct": 5.68
+      "mae_t10": 0.0137,
+      "r2_t10": 0.9937,
+      "delta_mae_pct": -2.35
     }
   },
   "top_features": [

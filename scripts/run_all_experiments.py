@@ -88,16 +88,30 @@ def run_full_benchmark_suite():
     X_train, Y_train = X_all[train_idx], Y_all[train_idx]
     X_test, Y_test = X_all[test_idx], Y_all[test_idx]
 
-    models = {
-        "B1: Static Threshold": StaticThresholdBaseline(),
-        "B2: Moving Average": MovingAverageBaseline(),
-        "B3: Linear Regression": LinearRegressionBaseline().fit(X_train, Y_train),
-        "B4: Random Forest": RandomForestBaseline(n_estimators=60, max_depth=10).fit(X_train, Y_train),
-        "B5: Gradient Boosted Trees": GradientBoostingBaseline(n_estimators=60, max_depth=4).fit(X_train, Y_train),
-        "M1: Temporal LSTM": TemporalForecasterLSTM(input_dim=X_train.shape[1], hidden_dim=48, output_dim=4).fit(X_train, Y_train),
-        "M2: Temporal GRU": TemporalForecasterGRU(input_dim=X_train.shape[1], hidden_dim=40, output_dim=4).fit(X_train, Y_train),
-        "M3: Temporal TCN": TemporalForecasterTCN(input_dim=X_train.shape[1], hidden_dim=64, output_dim=4).fit(X_train, Y_train)
-    }
+    models = {}
+    print("  -> Initializing B1: Static Threshold...")
+    models["B1: Static Threshold"] = StaticThresholdBaseline()
+
+    print("  -> Initializing B2: Moving Average...")
+    models["B2: Moving Average"] = MovingAverageBaseline()
+
+    print("  -> Training B3: Linear Regression (Ridge)...")
+    models["B3: Linear Regression"] = LinearRegressionBaseline().fit(X_train, Y_train)
+
+    print("  -> Training B4: Random Forest (60 estimators)...")
+    models["B4: Random Forest"] = RandomForestBaseline(n_estimators=60, max_depth=10).fit(X_train, Y_train)
+
+    print("  -> Training B5: Gradient Boosted Trees (60 estimators)...")
+    models["B5: Gradient Boosted Trees"] = GradientBoostingBaseline(n_estimators=60, max_depth=4).fit(X_train, Y_train)
+
+    print("  -> Training M1: Temporal LSTM (Backpropagation Through Time)...")
+    models["M1: Temporal LSTM"] = TemporalForecasterLSTM(input_dim=X_train.shape[1], hidden_dim=48, output_dim=4).fit(X_train, Y_train, verbose=True)
+
+    print("  -> Training M2: Temporal GRU (Gated Recurrent Unit)...")
+    models["M2: Temporal GRU"] = TemporalForecasterGRU(input_dim=X_train.shape[1], hidden_dim=40, output_dim=4).fit(X_train, Y_train, verbose=True)
+
+    print("  -> Training M3: Temporal TCN (Dilated Causal Convolutions)...")
+    models["M3: Temporal TCN"] = TemporalForecasterTCN(input_dim=X_train.shape[1], hidden_dim=64, output_dim=4).fit(X_train, Y_train, verbose=True)
 
     model_metrics = {}
     print(f"\n{'Model':<30} | {'MAE (t+1)':<10} | {'MAE (t+5)':<10} | {'MAE (t+10)':<10} | {'MAE (t+30)':<10} | {'R2 (t+10)':<10}")

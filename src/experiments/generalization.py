@@ -50,6 +50,7 @@ class GeneralizationSuite:
         X_val, Y_val = X_web[split_idx:], Y_web[split_idx:]
 
         model = TemporalForecasterLSTM(input_dim=X_train.shape[1], hidden_dim=48, output_dim=4)
+        model.model_name = "Generalization LSTM"
         model.fit(X_train, Y_train)
 
         results = {}
@@ -93,6 +94,7 @@ class FeatureAblationSuite:
 
         # 1. Full Model (Baseline)
         model_full = TemporalForecasterLSTM(input_dim=X_train.shape[1], hidden_dim=48, output_dim=4)
+        model_full.model_name = "Full Ablation LSTM"
         model_full.fit(X_train, Y_train)
         pred_full = model_full.predict(X_test)
         base_mae = float(mean_absolute_error(Y_test[:, 2], pred_full[:, 2]))
@@ -112,6 +114,7 @@ class FeatureAblationSuite:
             X_te_abl[:, group_indices] = 0.0
 
             m = TemporalForecasterLSTM(input_dim=X_train.shape[1], hidden_dim=48, output_dim=4)
+            m.model_name = f"Ablate [{group_name[:8]}]"
             m.fit(X_tr_abl, Y_train)
             preds = m.predict(X_te_abl)
 

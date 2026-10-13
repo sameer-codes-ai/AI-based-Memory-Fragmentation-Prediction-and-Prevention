@@ -6,7 +6,9 @@ Executes conditions E1 - E5 across benchmark workloads and measures both ML and 
 from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass, asdict
 import math
+import logging
 import numpy as np
+from sklearn.metrics import r2_score
 from ..traces.trace_schema import MemoryEvent, AllocationOp
 from ..traces.workload_generator import WorkloadGenerator, WorkloadFamily
 from ..simulator.heap_allocator import HeapAllocator, AllocationPolicy
@@ -68,12 +70,13 @@ class ExperimentRunner:
 
     def prepare_dataset_for_workload(
         self,
-        events: List[MemoryEvent]
+        events: List[MemoryEvent],
+        policy: AllocationPolicy = AllocationPolicy.FIRST_FIT
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[FragmentationSnapshot]]:
         """
         Executes a passive trace replay run to generate ground-truth feature/target tensors.
         """
-        allocator = HeapAllocator(total_capacity=self.heap_capacity, severe_f1_threshold=self.severe_threshold)
+        allocator = HeapAllocator(total_capacity=self.heap_capacity, policy=policy, severe_f1_threshold=self.severe_threshold)
         snapshots: List[FragmentationSnapshot] = []
 
         for tick, ev in enumerate(events):
@@ -99,21 +102,22 @@ class ExperimentRunner:
         events: List[MemoryEvent],
         condition_name: str,
         policy: Any,
-        forecaster: Optional[Any] = None
+        forecaster: Optional[Any] = None,
+        allocation_policy: AllocationPolicy = AllocationPolicy.FIRST_FIT
     ) -> ExperimentResult:
         """
         Executes interactive trace simulation under a given memory management policy.
         """
-        allocator = HeapAllocator(total_capacity=self.heap_capacity, severe_f1_threshold=self.severe_threshold)
+        allocator = HeapAllocator(total_capacity=self.heap_capacity, policy=allocation_policy, severe_f1_threshold=self.severe_threshold)
         snapshots: List[FragmentationSnapshot] = []
         recent_events: List[MemoryEvent] = []
+        feature_seq_history: List[np.ndarray] = []
         
-        predictions_history: List[float] = []
-        actual_t10_history: List[float] = []
+        predictions_by_tick: Dict[int, Tuple[float, float, float, float]] = {}
 
         for tick, ev in enumerate(events):
             recent_events.append(ev)
-            if len(recent_events) > (self.window_size + 10):
+            if len(recent_events) > (self.window_size + 20):
                 recent_events.pop(0)
 
             # Apply memory event
@@ -136,86 +140,23 @@ class ExperimentRunner:
             pred_f1 = current_snap.f1_largest_free_ratio
             if forecaster is not None and len(snapshots) >= self.window_size:
                 try:
-                    # Construct single-step feature vector using same logic as FeatureExtractor
-                    sub_snaps = snapshots[-self.window_size:]
-                    start_snap = sub_snaps[0]
-                    allocs = [e for e in recent_events if e.op == AllocationOp.ALLOC]
-                    frees = [e for e in recent_events if e.op == AllocationOp.FREE]
+                    feat_vec = self.extractor.extract_single_step(recent_events, snapshots)
+                    feature_seq_history.append(feat_vec.to_array())
+                    if len(feature_seq_history) > 30:
+                        feature_seq_history.pop(0)
 
-                    # Group 1: Allocation statistics
-                    alloc_sizes = [e.size for e in allocs]
-                    alloc_count = float(len(allocs))
-                    alloc_bytes = float(sum(alloc_sizes)) if alloc_sizes else 0.0
-                    alloc_mean = float(np.mean(alloc_sizes)) if alloc_sizes else 0.0
-                    alloc_std = float(np.std(alloc_sizes)) if len(alloc_sizes) > 1 else 0.0
-                    alloc_max = float(max(alloc_sizes)) if alloc_sizes else 0.0
-                    duration = max(0.001, current_snap.timestamp - start_snap.timestamp)
-                    alloc_rate = alloc_bytes / duration
-
-                    # Group 2: Deallocation statistics
-                    free_sizes = [e.size for e in frees]
-                    free_count = float(len(frees))
-                    free_bytes = float(sum(free_sizes)) if free_sizes else 0.0
-                    free_mean = float(np.mean(free_sizes)) if free_sizes else 0.0
-                    free_std = float(np.std(free_sizes)) if len(free_sizes) > 1 else 0.0
-                    free_rate = free_bytes / duration
-
-                    # Group 3: Lifetime features (real computation, not hardcoded)
-                    lifetimes = [e.lifetime for e in allocs if e.lifetime is not None]
-                    life_mean = float(np.mean(lifetimes)) if lifetimes else 0.0
-                    life_std = float(np.std(lifetimes)) if len(lifetimes) > 1 else 0.0
-                    tick_duration = duration / max(1, self.window_size)
-                    short_lived = sum(1 for l in lifetimes if l <= (10.0 * tick_duration))
-                    short_lived_ratio = float(short_lived) / max(1.0, float(len(lifetimes)))
-
-                    # Group 4: Free-space geometry
-                    f1 = current_snap.f1_largest_free_ratio
-                    f2 = current_snap.f2_free_block_entropy
-                    f3 = float(current_snap.f3_free_block_count)
-                    tot_free = float(current_snap.total_free_bytes)
-                    lfb = float(current_snap.largest_free_block)
-                    util = current_snap.memory_utilization
-
-                    # Group 5: Temporal dynamics
-                    delta_f1 = f1 - start_snap.f1_largest_free_ratio
-                    delta_f2 = f2 - start_snap.f2_free_block_entropy
-                    delta_alloc = float(current_snap.allocated_bytes - start_snap.allocated_bytes)
-
-                    # Burstiness: coefficient of variation of inter-arrival times
-                    if len(allocs) > 2:
-                        inter_times = np.diff([e.timestamp for e in allocs])
-                        burstiness = float(np.std(inter_times) / (np.mean(inter_times) + 1e-6))
-                    else:
-                        burstiness = 0.0
-
-                    alloc_free_ratio = alloc_count / max(1.0, free_count)
-
-                    # Group 6: Workload context
-                    active_alloc_count = float(current_snap.allocated_block_count)
-                    active_payload = float(current_snap.allocated_bytes)
-
-                    # Call stack entropy (real computation)
-                    stacks = [e.call_stack_hash for e in allocs if e.call_stack_hash is not None]
-                    if stacks:
-                        _, counts = np.unique(stacks, return_counts=True)
-                        p = counts / len(stacks)
-                        stack_entropy = float(-np.sum(p * np.log2(p + 1e-9)))
-                    else:
-                        stack_entropy = 0.0
-
-                    feats = np.array([[
-                        alloc_count, alloc_bytes, alloc_mean, alloc_std, alloc_max, alloc_rate,
-                        free_count, free_bytes, free_mean, free_std, free_rate,
-                        life_mean, life_std, short_lived_ratio,
-                        f1, f2, f3, tot_free, lfb, util,
-                        delta_f1, delta_f2, delta_alloc, burstiness, alloc_free_ratio,
-                        active_alloc_count, active_payload, stack_entropy
-                    ]], dtype=np.float32)
-
-                    preds = forecaster.predict(feats)
-                    pred_f1 = float(preds[0, 2]) # Horizon t+10
-                    predictions_history.append(pred_f1)
-                except Exception:
+                    feats_seq = np.array(feature_seq_history, dtype=np.float32)
+                    preds = forecaster.predict(feats_seq)
+                    pred_horizons = preds[-1]
+                    pred_f1 = float(pred_horizons[2]) # Horizon t+10
+                    predictions_by_tick[tick] = (
+                        float(pred_horizons[0]),
+                        float(pred_horizons[1]),
+                        float(pred_horizons[2]),
+                        float(pred_horizons[3])
+                    )
+                except Exception as exc:
+                    logging.debug("Forecaster prediction exception at tick %d: %s", tick, exc)
                     pred_f1 = current_snap.f1_largest_free_ratio
 
             # Policy decision
@@ -240,6 +181,37 @@ class ExperimentRunner:
         total_cost = sum(c.total_cost for c in compactions)
         severe_count = sum(1 for f in f1_series if f >= self.severe_threshold)
 
+        # Calculate online ML prediction accuracy if forecaster was used
+        mae_t1 = 0.0
+        mae_t5 = 0.0
+        mae_t10 = 0.0
+        mae_t30 = 0.0
+        r2_t10 = 0.0
+
+        if predictions_by_tick:
+            n_snaps = len(snapshots)
+            d1 = [abs(p[0] - snapshots[t + 1].f1_largest_free_ratio) for t, p in predictions_by_tick.items() if t + 1 < n_snaps]
+            d5 = [abs(p[1] - snapshots[t + 5].f1_largest_free_ratio) for t, p in predictions_by_tick.items() if t + 5 < n_snaps]
+            d10 = [abs(p[2] - snapshots[t + 10].f1_largest_free_ratio) for t, p in predictions_by_tick.items() if t + 10 < n_snaps]
+            d30 = [abs(p[3] - snapshots[t + 30].f1_largest_free_ratio) for t, p in predictions_by_tick.items() if t + 30 < n_snaps]
+
+            if d1:
+                mae_t1 = float(np.mean(d1))
+            if d5:
+                mae_t5 = float(np.mean(d5))
+            if d10:
+                mae_t10 = float(np.mean(d10))
+            if d30:
+                mae_t30 = float(np.mean(d30))
+
+            preds_10 = [p[2] for t, p in predictions_by_tick.items() if t + 10 < n_snaps]
+            actuals_10 = [snapshots[t + 10].f1_largest_free_ratio for t, p in predictions_by_tick.items() if t + 10 < n_snaps]
+            if len(actuals_10) > 1 and np.var(actuals_10) > 1e-8:
+                try:
+                    r2_t10 = float(r2_score(actuals_10, preds_10))
+                except Exception:
+                    r2_t10 = 0.0
+
         return ExperimentResult(
             condition_name=condition_name,
             workload_name=events[0].tag if events else "unknown",
@@ -253,5 +225,10 @@ class ExperimentRunner:
             total_bytes_moved_mb=float(total_bytes_moved) / (1024.0 * 1024.0),
             cumulative_pause_ms=float(total_pause_ms),
             total_cost=float(total_cost),
-            mean_utilization=float(np.mean(util_series))
+            mean_utilization=float(np.mean(util_series)),
+            mae_t1=round(mae_t1, 4),
+            mae_t5=round(mae_t5, 4),
+            mae_t10=round(mae_t10, 4),
+            mae_t30=round(mae_t30, 4),
+            r2_t10=round(r2_t10, 4)
         )

@@ -118,6 +118,7 @@ class GradientBoostingBaseline:
     """
 
     def __init__(self, n_estimators: int = 100, learning_rate: float = 0.05, max_depth: int = 5):
+        self.scaler = StandardScaler()
         self.model = MultiOutputRegressor(GradientBoostingRegressor(
             n_estimators=n_estimators,
             learning_rate=learning_rate,
@@ -127,12 +128,14 @@ class GradientBoostingBaseline:
         self.is_fitted = False
 
     def fit(self, X: np.ndarray, Y: np.ndarray) -> "GradientBoostingBaseline":
-        self.model.fit(X, Y)
+        X_scaled = self.scaler.fit_transform(X)
+        self.model.fit(X_scaled, Y)
         self.is_fitted = True
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         if not self.is_fitted:
             raise RuntimeError("Model is not fitted")
-        preds = self.model.predict(X)
+        X_scaled = self.scaler.transform(X)
+        preds = self.model.predict(X_scaled)
         return np.clip(preds, 0.0, 1.0)

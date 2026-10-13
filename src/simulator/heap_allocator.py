@@ -14,6 +14,7 @@ class AllocationPolicy(str, Enum):
     FIRST_FIT = "first_fit"
     BEST_FIT = "best_fit"
     WORST_FIT = "worst_fit"
+    NEXT_FIT = "next_fit"
 
 
 class HeapAllocator:
@@ -42,6 +43,7 @@ class HeapAllocator:
         self.alloc_map: Dict[int, MemoryBlock] = {} # address -> block reference
         self.alloc_id_map: Dict[int, MemoryBlock] = {} # alloc_id -> block reference
         self._next_alloc_id = 1
+        self._next_fit_index = 0
         self.failures_count = 0
         self.total_allocations = 0
         self.total_deallocations = 0
@@ -93,6 +95,16 @@ class HeapAllocator:
                         worst_size = b.size
                         candidate_idx = idx
 
+        elif self.policy == AllocationPolicy.NEXT_FIT:
+            num_blocks = len(self.blocks)
+            start_idx = self._next_fit_index % num_blocks if num_blocks > 0 else 0
+            for offset in range(num_blocks):
+                idx = (start_idx + offset) % num_blocks
+                b = self.blocks[idx]
+                if b.is_free and b.size >= aligned_size:
+                    candidate_idx = idx
+                    break
+
         if candidate_idx is None:
             self.failures_count += 1
             return None
@@ -114,6 +126,9 @@ class HeapAllocator:
         if remainder is not None:
             self.blocks.insert(candidate_idx + 1, remainder)
 
+        if self.policy == AllocationPolicy.NEXT_FIT:
+            self._next_fit_index = candidate_idx
+
         self.alloc_map[target_block.start_address] = target_block
         self.alloc_id_map[current_alloc_id] = target_block
         self.total_allocations += 1
@@ -123,25 +138,24 @@ class HeapAllocator:
         """
         Frees memory at the specified start address and automatically coalesces adjacent free neighbors.
         """
+        if address in self.alloc_map:
+            block = self.alloc_map.pop(address)
+            if block.alloc_id in self.alloc_id_map:
+                del self.alloc_id_map[block.alloc_id]
+
+            block.is_free = True
+            block.alloc_id = None
+            block.tag = ""
+            block.call_stack_hash = None
+            self.total_deallocations += 1
+
+            self._coalesce()
+            return True
+
         if address in self.alloc_id_map:
             return self.free_by_id(address, timestamp)
 
-        if address not in self.alloc_map:
-            return False
-
-        block = self.alloc_map.pop(address)
-        if block.alloc_id in self.alloc_id_map:
-            del self.alloc_id_map[block.alloc_id]
-
-        block.is_free = True
-        block.alloc_id = None
-        block.tag = ""
-        block.call_stack_hash = None
-        self.total_deallocations += 1
-
-        # Coalesce adjacent free blocks
-        self._coalesce()
-        return True
+        return False
 
     def free_by_id(self, alloc_id: int, timestamp: float = 0.0) -> bool:
         """
@@ -178,6 +192,7 @@ class HeapAllocator:
             else:
                 new_blocks.append(b)
         self.blocks = new_blocks
+        self._next_fit_index = min(self._next_fit_index, max(0, len(self.blocks) - 1))
 
     def compact(self, timestamp: float = 0.0) -> CompactionReport:
         """
@@ -194,6 +209,7 @@ class HeapAllocator:
                 if b.alloc_id is not None:
                     self.alloc_id_map[b.alloc_id] = b
 
+        self._next_fit_index = 0
         self.compaction_history.append(report)
         return report
 

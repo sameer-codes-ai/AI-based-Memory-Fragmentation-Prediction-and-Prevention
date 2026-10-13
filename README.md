@@ -4,68 +4,85 @@ PREFRAG is a research framework for **multi-horizon memory fragmentation forecas
 
 ---
 
-## 📐 Architecture
+### 📐 Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        PREFRAG System Architecture                         │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌──────────────┐    ┌──────────────────┐    ┌────────────────────────┐     │
-│  │ Trace Source  │───▶│  Heap Simulator  │───▶│  Feature Extractor    │     │
-│  │              │    │                  │    │  (28-D sliding window) │     │
-│  │ • Workload   │    │ • First-Fit      │    │                        │     │
-│  │   Generator  │    │   Allocation     │    │ 6 Feature Groups:      │     │
-│  │ • CSV Parser │    │ • Free-Block     │    │ 1. Allocation Stats    │     │
-│  │ • Live       │    │   Coalescing     │    │ 2. Deallocation Stats  │     │
-│  │   Profiler   │    │ • F1/F2/F3       │    │ 3. Lifetime Features   │     │
-│  │              │    │   Metrics        │    │ 4. Freespace Geometry  │     │
-│  └──────────────┘    └──────────────────┘    │ 5. Temporal Dynamics   │     │
-│                                              │ 6. Workload Context    │     │
-│                                              └───────────┬────────────┘     │
-│                                                          │                  │
-│                                                          ▼                  │
-│                              ┌────────────────────────────────────────┐     │
-│                              │     ML Forecasting Models             │     │
-│                              │                                        │     │
-│                              │  Baselines:          Temporal Models:   │     │
-│                              │  B1: Static          M1: LSTM          │     │
-│                              │  B2: Moving Avg      M2: GRU           │     │
-│                              │  B3: Ridge           M3: TCN (Dilated  │     │
-│                              │  B4: Random Forest       Causal Conv)  │     │
-│                              │  B5: GBT                               │     │
-│                              │                                        │     │
-│                              │  Output: F̂(t+1), F̂(t+5),              │     │
-│                              │          F̂(t+10), F̂(t+30)             │     │
-│                              └──────────────┬─────────────────────────┘     │
-│                                             │                               │
-│                                             ▼                               │
-│                              ┌────────────────────────────────┐             │
-│                              │   Cost-Benefit Optimizer       │             │
-│                              │                                │             │
-│                              │   A* = argmax [Benefit - Cost] │             │
-│                              │                                │             │
-│                              │   Benefit = λ · ΔF₁            │             │
-│                              │   Cost = α·blocks + β·bytes    │             │
-│                              │          + γ·pause_ms          │             │
-│                              └──────────┬─────────────────────┘             │
-│                                         │                                   │
-│                              ┌──────────▼─────────────────────┐             │
-│                              │  Decision Policies (E1-E5)     │             │
-│                              │                                │             │
-│                              │  E1: Reactive Baseline         │             │
-│                              │  E2: Always-Proactive          │             │
-│                              │  E3: Prediction Only           │             │
-│                              │  E4: ML + Threshold            │             │
-│                              │  E5: ML + Cost-Aware (PREFRAG) │             │
-│                              └──────────┬─────────────────────┘             │
-│                                         │                                   │
-│                              ┌──────────▼─────────────────────┐             │
-│                              │  Compaction Engine             │             │
-│                              │  Sliding block migration with  │             │
-│                              │  physical latency/cost model   │             │
-│                              └────────────────────────────────┘             │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph S1["1. Workload Trace Ingestion & Generation"]
+        WG["Workload Generator<br/>(10 Diverse Benchmark Families)"]
+        CP["External CSV / JSON Trace Ingestion"]
+        LP["Live Runtime Profiler (tracemalloc)"]
+        ES["MemoryEvent Stream<br/>(op, size, timestamp, lifetime, call_stack)"]
+        WG --> ES
+        CP --> ES
+        LP --> ES
+    end
+
+    subgraph S2["2. Multi-Policy Virtual Heap Simulator"]
+        direction TB
+        AS["Allocation Policy Engine"]
+        FF["First-Fit (Linear)"]
+        BF["Best-Fit (Min-Diff)"]
+        WF["Worst-Fit (Max-Free)"]
+        NF["Next-Fit (Roving)"]
+        AS --- FF
+        AS --- BF
+        AS --- WF
+        AS --- NF
+        HS["Contiguous Heap State<br/>(Contiguous Block Tracking & Boundary Coalescing)"]
+        FM["Spatial Fragmentation Telemetry<br/>F1: Largest Free Block Ratio<br/>F2: Shannon Entropy of Free Blocks<br/>F3: Contiguous Free Block Count"]
+        AS --> HS --> FM
+    end
+
+    subgraph S3["3. 34-Dimensional Feature Engineering Pipeline"]
+        FE["Temporal Feature Extractor (Sliding Window w = 40)"]
+        G1["G1: Allocation Statistics (6-D)"]
+        G2["G2: Deallocation Statistics (5-D)"]
+        G3["G3: Observed Lifetime Dynamics (3-D)"]
+        G4["G4: Free-Space Geometry (6-D)"]
+        G5["G5: Temporal Dynamics & Burstiness (5-D)"]
+        G6["G6: Workload & Call-Site Entropy (3-D)"]
+        G7["G7: Lag & Trend Trajectory (6-D)"]
+        FE --- G1 & G2 & G3 & G4 & G5 & G6 & G7
+        FV["Feature Representation<br/>Training: X in R^(N x 34) (Chronological)<br/>Inference: Rolling Sequence in R^(L x 34)"]
+        FE --> FV
+    end
+
+    subgraph S4["4. Multi-Horizon Forecasting Engine"]
+        subgraph BL["Baselines (B1-B5)"]
+            B1["B1: Static Threshold"]
+            B2["B2: Moving Average"]
+            B3["B3: Ridge Regression"]
+            B4["B4: Random Forest"]
+            B5["B5: Gradient Boosted Trees"]
+        end
+        subgraph DL["Deep Temporal Sequence Forecasters (M1-M3)"]
+            M1["M1: LSTM (BPTT, Cell State)"]
+            M2["M2: GRU (Gated Reset/Update)"]
+            M3["M3: TCN (Dilated Causal Convolutions)"]
+        end
+        FO["Multi-Horizon Predictions<br/>F1(t+1), F1(t+5), F1(t+10), F1(t+30)"]
+        BL --> FO
+        DL --> FO
+    end
+
+    subgraph S5["5. Preventive Control Plane"]
+        CBO["Cost-Benefit Utility Optimizer<br/>A* = argmax (Benefit - Cost)<br/>Benefit = lambda * delta_F1<br/>Cost = alpha*blocks + beta*bytes + gamma*pause_ms"]
+        DP["Decision Policies (E1 - E5)<br/>E1: Reactive Baseline | E2: Always-Proactive<br/>E3: Prediction Only | E4: Predictive Threshold<br/>E5: PREFRAG (Predictive + Cost-Aware)"]
+        CBO --> DP
+    end
+
+    subgraph S6["6. Physical Compaction Engine & Closed-Loop Actuation"]
+        CE["Sliding Memory Compaction<br/>(LISP-2 Pointer Re-Indexing & Bus Latency Modeling)"]
+    end
+
+    ES -->|"Event Ingestion"| AS
+    FM -->|"Continuous Telemetry Snapshot"| FE
+    FV -->|"Sequence Flow"| DL
+    FV -->|"Tabular Vector"| BL
+    FO -->|"Future Horizon Forecasts"| CBO
+    DP -->|"Compaction Trigger: should_compact = True"| CE
+    CE -.->|"Closed-Loop Actuation: Physical Heap Reorganization & State Update"| HS
 ```
 
 ---
@@ -116,15 +133,15 @@ MemoryFragmentation/
 ├── src/
 │   ├── traces/          # Trace schema, workload generators, CSV/JSON parsers
 │   │   ├── trace_schema.py       # MemoryEvent, AllocationOp, TraceStream
-│   │   ├── workload_generator.py # 5 workload families (Web, DB, Scientific, Microservice, Adversarial)
+│   │   ├── workload_generator.py # 10 workload families (Web, DB, Scientific, Microservice, Adversarial, etc.)
 │   │   └── trace_parser.py       # External trace file ingestion
 │   ├── simulator/       # Virtual heap allocator and fragmentation detection
-│   │   ├── heap_allocator.py     # First-Fit allocator with block coalescing & alloc_id tracking
+│   │   ├── heap_allocator.py     # Multi-policy allocator (First/Best/Worst/Next-Fit) with coalescing & alloc_id tracking
 │   │   ├── memory_block.py       # MemoryBlock data class with split logic
 │   │   ├── fragmentation_metrics.py  # F1 (Largest Free Block Ratio), F2 (Shannon Entropy), F3
 │   │   └── compaction_engine.py  # Sliding compaction with physical cost model
-│   ├── features/        # 28-dimensional temporal feature extraction pipeline
-│   │   └── feature_extractor.py  # 6 feature groups, multi-horizon target generation
+│   ├── features/        # 34-dimensional temporal feature extraction pipeline
+│   │   └── feature_extractor.py  # 7 feature groups, multi-horizon target generation, online extraction
 │   ├── models/          # Prediction models
 │   │   ├── baselines.py          # B1-B5: Threshold, MovingAvg, Ridge, RandomForest, GBT
 │   │   └── temporal_nn.py        # M1: LSTM, M2: GRU, M3: TCN (real implementations, pure NumPy)
@@ -162,7 +179,7 @@ Memory fragmentation occurs when free memory is scattered across non-contiguous 
 ### Our Approach
 PREFRAG introduces a closed-loop system that:
 
-1. **Predicts** future fragmentation at multiple horizons (t+1, t+5, t+10, t+30) using temporal deep learning models (LSTM, GRU, TCN) trained on 28-dimensional feature vectors extracted from allocation dynamics.
+1. **Predicts** future fragmentation at multiple horizons (t+1, t+5, t+10, t+30) using temporal deep learning models (LSTM, GRU, TCN) trained on 34-dimensional feature vectors extracted from allocation dynamics across 7 semantic groups.
 
 2. **Proactively reorganizes** memory by triggering compaction only when the cost-benefit analysis yields positive net utility:
 

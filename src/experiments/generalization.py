@@ -21,7 +21,12 @@ class GeneralizationSuite:
         self.extractor = extractor
         self.generator = WorkloadGenerator(seed=42)
 
-    def run_cross_workload_matrix(self, num_events: int = 2500) -> Dict[str, Dict[str, float]]:
+    def run_cross_workload_matrix(
+        self,
+        num_events: int = 2500,
+        hidden_dim: int = 64,
+        epochs: int = 60
+    ) -> Dict[str, Dict[str, float]]:
         """
         Trains model on WEB_SERVER and evaluates on all workload families.
         """
@@ -49,7 +54,7 @@ class GeneralizationSuite:
         X_train, Y_train = X_web[:split_idx], Y_web[:split_idx]
         X_val, Y_val = X_web[split_idx:], Y_web[split_idx:]
 
-        model = TemporalForecasterLSTM(input_dim=X_train.shape[1], hidden_dim=48, output_dim=4)
+        model = TemporalForecasterLSTM(input_dim=X_train.shape[1], hidden_dim=hidden_dim, output_dim=4, epochs=epochs)
         model.model_name = "Generalization LSTM"
         model.fit(X_train, Y_train)
 
@@ -77,7 +82,7 @@ class GeneralizationSuite:
 
 class FeatureAblationSuite:
     """
-    Evaluates impact of systematically dropping each of the 6 feature groups.
+    Evaluates impact of systematically dropping each of the 7 feature groups.
     """
 
     def __init__(self):
@@ -88,12 +93,14 @@ class FeatureAblationSuite:
         X_train: np.ndarray,
         Y_train: np.ndarray,
         X_test: np.ndarray,
-        Y_test: np.ndarray
+        Y_test: np.ndarray,
+        hidden_dim: int = 64,
+        epochs: int = 60
     ) -> Dict[str, Dict[str, float]]:
         results = {}
 
         # 1. Full Model (Baseline)
-        model_full = TemporalForecasterLSTM(input_dim=X_train.shape[1], hidden_dim=48, output_dim=4)
+        model_full = TemporalForecasterLSTM(input_dim=X_train.shape[1], hidden_dim=hidden_dim, output_dim=4, epochs=epochs)
         model_full.model_name = "Full Ablation LSTM"
         model_full.fit(X_train, Y_train)
         pred_full = model_full.predict(X_test)
@@ -113,7 +120,7 @@ class FeatureAblationSuite:
             X_tr_abl[:, group_indices] = 0.0
             X_te_abl[:, group_indices] = 0.0
 
-            m = TemporalForecasterLSTM(input_dim=X_train.shape[1], hidden_dim=48, output_dim=4)
+            m = TemporalForecasterLSTM(input_dim=X_train.shape[1], hidden_dim=hidden_dim, output_dim=4, epochs=epochs)
             m.model_name = f"Ablate [{group_name[:8]}]"
             m.fit(X_tr_abl, Y_train)
             preds = m.predict(X_te_abl)

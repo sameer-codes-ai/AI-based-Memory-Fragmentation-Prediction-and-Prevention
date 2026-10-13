@@ -35,7 +35,7 @@ def _render_progress_bar(
 # ============================================================================
 
 def _sigmoid(x: np.ndarray) -> np.ndarray:
-    x_clip = np.clip(x, -500, 500)
+    x_clip = np.clip(x, -88.0, 88.0)
     return 1.0 / (1.0 + np.exp(-x_clip))
 
 def _tanh(x: np.ndarray) -> np.ndarray:
@@ -88,8 +88,8 @@ class TemporalForecasterLSTM:
     Processes feature sequences through recurrent connections before a linear output layer.
     """
 
-    def __init__(self, input_dim: int = 28, hidden_dim: int = 48, output_dim: int = 4,
-                 seq_len: int = 10, learning_rate: float = 0.001, epochs: int = 80, seed: int = 42):
+    def __init__(self, input_dim: int = 34, hidden_dim: int = 64, output_dim: int = 4,
+                 seq_len: int = 15, learning_rate: float = 0.002, epochs: int = 100, seed: int = 42):
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
@@ -123,7 +123,7 @@ class TemporalForecasterLSTM:
     def _build_sequences(self, X: np.ndarray) -> np.ndarray:
         """Convert flat feature matrix (N, D) into causal sequences of shape (N, seq_len, D)."""
         N, D = X.shape
-        pad = np.zeros((self.seq_len - 1, D), dtype=np.float32)
+        pad = np.tile(X[0:1], (self.seq_len - 1, 1))
         X_padded = np.vstack([pad, X])
         seqs = np.zeros((N, self.seq_len, D), dtype=np.float32)
         for i in range(N):
@@ -211,14 +211,14 @@ class TemporalForecasterLSTM:
             dg_raw = dg * (1 - g_t ** 2)
 
             # Weight gradients
-            grads['Wf'] += concat.T @ df_raw / batch_size
-            grads['bf'] += np.mean(df_raw, axis=0)
-            grads['Wi'] += concat.T @ di_raw / batch_size
-            grads['bi'] += np.mean(di_raw, axis=0)
-            grads['Wg'] += concat.T @ dg_raw / batch_size
-            grads['bg'] += np.mean(dg_raw, axis=0)
-            grads['Wo'] += concat.T @ do_raw / batch_size
-            grads['bo'] += np.mean(do_raw, axis=0)
+            grads['Wf'] += concat.T @ df_raw
+            grads['bf'] += np.sum(df_raw, axis=0)
+            grads['Wi'] += concat.T @ di_raw
+            grads['bi'] += np.sum(di_raw, axis=0)
+            grads['Wg'] += concat.T @ dg_raw
+            grads['bg'] += np.sum(dg_raw, axis=0)
+            grads['Wo'] += concat.T @ do_raw
+            grads['bo'] += np.sum(do_raw, axis=0)
 
             # Gradient to previous hidden state
             d_concat = (df_raw @ self.params['Wf'].T +
@@ -248,8 +248,14 @@ class TemporalForecasterLSTM:
             batch_size = min(32, N)
 
         indices = np.arange(N)
+        current_lr = self.lr
 
         for epoch in range(1, self.epochs + 1):
+            if epoch == int(self.epochs * 0.6):
+                current_lr = self.lr * 0.5
+            elif epoch == int(self.epochs * 0.85):
+                current_lr = self.lr * 0.25
+
             self.rng.shuffle(indices)
             epoch_loss = 0.0
             num_batches = 0
@@ -272,14 +278,14 @@ class TemporalForecasterLSTM:
                 error = err_diff / len(idx)
 
                 # Output layer gradients
-                grads = {'Wy': h_final.T @ error, 'by': np.mean(error, axis=0)}
+                grads = {'Wy': h_final.T @ error, 'by': np.sum(error, axis=0)}
 
                 # BPTT through LSTM
                 dh_final = error @ self.params['Wy'].T
                 lstm_grads = self._lstm_backward(dh_final, X_batch, cache)
                 grads.update(lstm_grads)
 
-                self.adam.update(self.params, grads, lr=self.lr)
+                self.adam.update(self.params, grads, lr=current_lr)
 
             if verbose:
                 avg_loss = epoch_loss / max(1, num_batches)
@@ -309,8 +315,8 @@ class TemporalForecasterGRU:
     Lighter than LSTM (no separate cell state), often comparable performance.
     """
 
-    def __init__(self, input_dim: int = 28, hidden_dim: int = 40, output_dim: int = 4,
-                 seq_len: int = 10, learning_rate: float = 0.001, epochs: int = 80, seed: int = 101):
+    def __init__(self, input_dim: int = 34, hidden_dim: int = 64, output_dim: int = 4,
+                 seq_len: int = 15, learning_rate: float = 0.002, epochs: int = 100, seed: int = 101):
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
@@ -340,7 +346,7 @@ class TemporalForecasterGRU:
     def _build_sequences(self, X: np.ndarray) -> np.ndarray:
         """Convert flat feature matrix (N, D) into causal sequences of shape (N, seq_len, D)."""
         N, D = X.shape
-        pad = np.zeros((self.seq_len - 1, D), dtype=np.float32)
+        pad = np.tile(X[0:1], (self.seq_len - 1, 1))
         X_padded = np.vstack([pad, X])
         seqs = np.zeros((N, self.seq_len, D), dtype=np.float32)
         for i in range(N):
@@ -394,8 +400,8 @@ class TemporalForecasterGRU:
             dh_cand = dh * z_t
             dh_cand_raw = dh_cand * (1 - h_cand ** 2)
 
-            grads['Wh'] += concat_h.T @ dh_cand_raw / batch_size
-            grads['bh'] += np.mean(dh_cand_raw, axis=0)
+            grads['Wh'] += concat_h.T @ dh_cand_raw
+            grads['bh'] += np.sum(dh_cand_raw, axis=0)
 
             d_concat_h = dh_cand_raw @ self.params['Wh'].T
             d_rh = d_concat_h[:, self.input_dim:]
@@ -404,15 +410,15 @@ class TemporalForecasterGRU:
             dz = dh * (h_cand - h_prev)
             dz_raw = dz * z_t * (1 - z_t)
 
-            grads['Wz'] += concat_zr.T @ dz_raw / batch_size
-            grads['bz'] += np.mean(dz_raw, axis=0)
+            grads['Wz'] += concat_zr.T @ dz_raw
+            grads['bz'] += np.sum(dz_raw, axis=0)
 
             # Reset gate gradient
             dr = d_rh * h_prev
             dr_raw = dr * r_t * (1 - r_t)
 
-            grads['Wr'] += concat_zr.T @ dr_raw / batch_size
-            grads['br'] += np.mean(dr_raw, axis=0)
+            grads['Wr'] += concat_zr.T @ dr_raw
+            grads['br'] += np.sum(dr_raw, axis=0)
 
             # Hidden state gradient for previous timestep
             dh_from_z = dz_raw @ self.params['Wz'].T
@@ -440,8 +446,14 @@ class TemporalForecasterGRU:
             batch_size = min(32, N)
 
         indices = np.arange(N)
+        current_lr = self.lr
 
         for epoch in range(1, self.epochs + 1):
+            if epoch == int(self.epochs * 0.6):
+                current_lr = self.lr * 0.5
+            elif epoch == int(self.epochs * 0.85):
+                current_lr = self.lr * 0.25
+
             self.rng.shuffle(indices)
             epoch_loss = 0.0
             num_batches = 0
@@ -459,12 +471,12 @@ class TemporalForecasterGRU:
 
                 error = err_diff / len(idx)
 
-                grads = {'Wy': h_final.T @ error, 'by': np.mean(error, axis=0)}
+                grads = {'Wy': h_final.T @ error, 'by': np.sum(error, axis=0)}
                 dh_final = error @ self.params['Wy'].T
                 gru_grads = self._gru_backward(dh_final, X_batch, cache)
                 grads.update(gru_grads)
 
-                self.adam.update(self.params, grads, lr=self.lr)
+                self.adam.update(self.params, grads, lr=current_lr)
 
             if verbose:
                 avg_loss = epoch_loss / max(1, num_batches)
@@ -494,9 +506,9 @@ class TemporalForecasterTCN:
     Uses kernel_size=3, dilation rates [1, 2, 4] for exponentially growing receptive field.
     """
 
-    def __init__(self, input_dim: int = 28, hidden_dim: int = 32, output_dim: int = 4,
-                 seq_len: int = 10, kernel_size: int = 3, num_layers: int = 3,
-                 learning_rate: float = 0.001, epochs: int = 80, seed: int = 202):
+    def __init__(self, input_dim: int = 34, hidden_dim: int = 64, output_dim: int = 4,
+                 seq_len: int = 15, kernel_size: int = 3, num_layers: int = 3,
+                 learning_rate: float = 0.002, epochs: int = 100, seed: int = 202):
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
@@ -534,7 +546,7 @@ class TemporalForecasterTCN:
     def _build_sequences(self, X: np.ndarray) -> np.ndarray:
         """Convert flat feature matrix (N, D) into causal sequences of shape (N, seq_len, D)."""
         N, D = X.shape
-        pad = np.zeros((self.seq_len - 1, D), dtype=np.float32)
+        pad = np.tile(X[0:1], (self.seq_len - 1, 1))
         X_padded = np.vstack([pad, X])
         seqs = np.zeros((N, self.seq_len, D), dtype=np.float32)
         for i in range(N):
@@ -616,7 +628,7 @@ class TemporalForecasterTCN:
                 d_residual = dh_seq.copy()
                 # Gradient through residual projection
                 for t in range(seq_len):
-                    grads['W_res0'] += h_in[:, t, :].T @ d_residual[:, t, :] / batch
+                    grads['W_res0'] += h_in[:, t, :].T @ d_residual[:, t, :]
             else:
                 d_residual = dh_seq.copy()
 
@@ -643,8 +655,8 @@ class TemporalForecasterTCN:
                 patch = np.concatenate(patches, axis=1)
 
                 d_out_t = d_conv[:, t, :]  # (batch, C_out)
-                dW += patch.T @ d_out_t / batch
-                db += np.mean(d_out_t, axis=0)
+                dW += patch.T @ d_out_t
+                db += np.sum(d_out_t, axis=0)
 
                 d_patch = d_out_t @ self.params[f'W_conv{l}'].T  # (batch, C_in * K)
                 for k_idx, pidx in enumerate(patch_indices):
@@ -675,8 +687,14 @@ class TemporalForecasterTCN:
             batch_size = min(32, N)
 
         indices = np.arange(N)
+        current_lr = self.lr
 
         for epoch in range(1, self.epochs + 1):
+            if epoch == int(self.epochs * 0.6):
+                current_lr = self.lr * 0.5
+            elif epoch == int(self.epochs * 0.85):
+                current_lr = self.lr * 0.25
+
             self.rng.shuffle(indices)
             epoch_loss = 0.0
             num_batches = 0
@@ -694,12 +712,12 @@ class TemporalForecasterTCN:
 
                 error = err_diff / len(idx)
 
-                grads = {'Wy': h_final.T @ error, 'by': np.mean(error, axis=0)}
+                grads = {'Wy': h_final.T @ error, 'by': np.sum(error, axis=0)}
                 dh_final = error @ self.params['Wy'].T
                 tcn_grads = self._tcn_backward(dh_final, X_batch, cache)
                 grads.update(tcn_grads)
 
-                self.adam.update(self.params, grads, lr=self.lr)
+                self.adam.update(self.params, grads, lr=current_lr)
 
             if verbose:
                 avg_loss = epoch_loss / max(1, num_batches)

@@ -160,11 +160,6 @@ MemoryFragmentation/
 │   ├── saved_traces/             # Generated workload traces (CSV)
 │   ├── benchmark_report.md       # Full benchmark results
 │   └── experiment_summary.json   # Machine-readable results
-├── docs/                         # Research documentation (not tracked in git)
-│   ├── literature_review.md      # 24-paper verified survey (2021-2025)
-│   ├── novelty_analysis.md       # Adversarial kill-test & research gap analysis
-│   ├── methodology.md            # Dataset audit & experimental methodology
-│   └── research_design.md        # Mathematical formulation & systems architecture
 ├── requirements.txt
 └── README.md
 ```
@@ -256,8 +251,6 @@ The project includes a **24-paper verified literature survey** (2021–2025) cov
 
 All papers are from verified top-tier venues: ASPLOS, OSDI, SOSP, USENIX ATC, NeurIPS, ICML, ISMM, SC, IEEE MCSoC, and peer-reviewed journals.
 
-See [`docs/literature_review.md`](docs/literature_review.md) for the complete survey.
-
 ---
 
 ## License
@@ -268,5 +261,5 @@ MIT License
 
 ## Author
 
-Sameer Kumar — VIT Student  
+Sameer Kumar — VIT Vellore  
 sameer.kumar2024@vitstudent.ac.in

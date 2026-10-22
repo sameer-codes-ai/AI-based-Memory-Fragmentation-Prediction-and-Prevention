@@ -114,12 +114,20 @@ pip install -r requirements.txt
 python -m pytest tests/test_all.py -v
 ```
 
-### 4. Run End-to-End Benchmark Experiments
+### 4. Launch Real-Time Interactive Demo (Web Dashboard)
+Experience physical heap fragmentation generation, multi-horizon deep learning forecasting ($ at +10$), and cost-aware sliding defragmentation live:
+`ash
+# On Windows (1-click double-click launch_demo.bat or run):
+python scripts/live_demo.py
+`
+Automatically opens your browser at http://127.0.0.1:8050.
+
+### 5. Run End-to-End Benchmark Experiments
 ```bash
 python scripts/run_all_experiments.py
 ```
 
-### 5. Record Live Memory Traces (Optional)
+### 6. Record Live Memory Traces (Optional)
 ```bash
 python scripts/record_live_trace.py
 ```

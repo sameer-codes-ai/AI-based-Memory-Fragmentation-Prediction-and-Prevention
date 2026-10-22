@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PREFRAG // Memory Profiler & Reorganization Controller</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #0b0d13;
+      color: #cbd5e1;
+    }
+    .font-mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #0f1219;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #232a3b;
+      border-radius: 2px;
+    }
+    /* Realistic profiler free-hole hatch pattern */
+    .hole-hatch {
+      background: repeating-linear-gradient(
+        -45deg,
+        #141923,
+        #141923 4px,
+        #1c2333 4px,
+        #1c2333 8px
+      );
+      border: 1px dashed #3a4560;
+    }
+    .ruler-tick {
+      position: absolute;
+      bottom: 0;
+      height: 6px;
+      width: 1px;
+      background-color: #334155;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-slate-700 selection:text-white">
+
+  <!-- Top System Bar (Linux / DevTools style) -->
+  <header class="border-b border-slate-800 bg-[#0f1219] px-5 py-2.5">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Brand & Subtitle -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span class="font-mono font-bold text-sm text-slate-100 tracking-wider">PREFRAG</span>
+          <span class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">v1.2-runtime</span>
+        </div>
+        <span class="text-slate-600">|</span>
+        <span class="text-xs text-slate-400 hidden sm:inline">Virtual Heap Allocator & Closed-Loop ML Defragmenter</span>
+      </div>
+
+      <!-- Live Connection & State Telemetry -->
+      <div class="flex items-center gap-3 text-xs font-mono">
+        <div class="flex items-center gap-1.5 text-slate-400">
+          <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+          <span id="connStatus" class="text-slate-300">ONLINE</span>
+        </div>
+        <span class="text-slate-700">/</span>
+        <div>
+          <span class="text-slate-500">TICK</span>
+          <span id="statTick" class="text-slate-200 font-semibold ml-1">0</span>
+        </div>
+        <span class="text-slate-700">/</span>
+        <div>
+          <span class="text-slate-500">HEAP_CAP</span>
+          <span id="statTotalCap" class="text-slate-200 font-semibold ml-1">1024 KB</span>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main View -->
+  <main class="max-w-7xl mx-auto w-full p-5 space-y-4 flex-1">
+
+    <!-- KPI Telemetry Bar (Dense, Monospace, Data-First) -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      
+      <!-- F1 Metric -->
+      <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
+        <div class="flex justify-between items-center text-[11px] font-mono text-slate-400">
+          <span>METRIC_F1</span>
+          <span id="f1Badge" class="px-1 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700">NOMINAL</span>
+        </div>
+        <div class="mt-1.5 text-xl font-mono font-bold text-slate-100" id="f1Value">0.0000</div>
+        <div class="text-[10px] font-mono text-slate-500 mt-0.5">1 - (MaxFree / FreeTotal)</div>
+      </div>
+
+      <!-- Predicted F1 Horizon t+10 -->
+      <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
+        <div class="flex justify-between items-center text-[11px] font-mono text-slate-400">
+          <span>FORECAST_t+10</span>
+          <span class="px-1 rounded text-[10px] bg-blue-950 text-blue-400 border border-blue-900/60">M3/RF</span>
+        </div>
+        <div class="mt-1.5 text-xl font-mono font-bold text-blue-400" id="predF1Value">0.0000</div>
+        <div class="text-[10px] font-mono text-slate-500 mt-0.5">Proactive Target Horizon</div>
+      </div>
+
+      <!-- Disjoint Free Holes -->
+      <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
+        <div class="text-[11px] font-mono text-slate-400">FREE_HOLES (F3)</div>
+        <div class="mt-1.5 text-xl font-mono font-bold text-amber-400" id="freeBlocksCount">1</div>
+        <div class="text-[10px] font-mono text-slate-500 mt-0.5">Disjoint unallocated chunks</div>
+      </div>
+
+      <!-- Largest Contiguous Free Chunk -->
+      <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
+        <div class="text-[11px] font-mono text-slate-400">MAX_CONTIGUOUS</div>
+        <div class="mt-1.5 text-xl font-mono font-bold text-slate-100" id="largestFreeVal">1024 <span class="text-xs text-slate-400 font-normal">KB</span></div>
+        <div class="text-[10px] font-mono text-slate-500 mt-0.5">Ceiling for single alloc</div>
+      </div>
+
+      <!-- Utilization -->
+      <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
+        <div class="text-[11px] font-mono text-slate-400">HEAP_UTILIZATION</div>
+        <div class="mt-1.5 text-xl font-mono font-bold text-slate-100" id="utilVal">0.0%</div>
+        <div class="text-[10px] font-mono text-slate-500 mt-0.5">Allocated / Total Bytes</div>
+      </div>
+
+      <!-- Compactions Run -->
+      <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
+        <div class="text-[11px] font-mono text-slate-400">REORGS_TOTAL</div>
+        <div class="mt-1.5 text-xl font-mono font-bold text-slate-100" id="compactionsCount">0</div>
+        <div class="text-[10px] font-mono text-slate-500 mt-0.5">Sliding passes executed</div>
+      </div>
+
+    </div>
+
+    <!-- Controls & Operations Strip (Clean, Utilitarian Buttons) -->
+    <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3 flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Configuration Selectors -->
+      <div class="flex flex-wrap items-center gap-2.5 text-xs font-mono">
+        <div>
+          <label class="text-slate-500 block text-[10px] uppercase">Workload</label>
+          <select id="workloadSelect" onchange="onConfigureChange()" class="bg-[#0b0d13] border border-slate-700/80 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-slate-500">
+            <option value="database" selected>Workload: Database (B-Tree + Buffer Pool)</option>
+            <option value="web_server">Workload: Web Server (HTTP Bursts)</option>
+            <option value="scientific">Workload: Scientific (Tensor Cycles)</option>
+            <option value="adversarial_churn">Workload: Adversarial Churn</option>
+            <option value="game_engine">Workload: Game Engine (Frame Alloc)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-slate-500 block text-[10px] uppercase">Allocator</label>
+          <select id="allocatorSelect" onchange="onConfigureChange()" class="bg-[#0b0d13] border border-slate-700/80 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-slate-500">
+            <option value="best_fit" selected>Policy: Best-Fit (Linear)</option>
+            <option value="first_fit">Policy: First-Fit</option>
+            <option value="worst_fit">Policy: Worst-Fit</option>
+            <option value="next_fit">Policy: Next-Fit (Roving)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-slate-500 block text-[10px] uppercase">Controller Mode</label>
+          <select id="policySelect" onchange="onConfigureChange()" class="bg-[#0b0d13] border border-slate-700/80 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-slate-500">
+            <option value="E5: PREFRAG (Predictive + Cost-Aware)" selected>E5: PREFRAG (Cost-Aware Utility)</option>
+            <option value="E1: Reactive Baseline">E1: Reactive Baseline (Late Threshold)</option>
+            <option value="E2: Always-Proactive">E2: Always-Proactive (Fixed Interval)</option>
+            <option value="E4: ML + Threshold">E4: ML + Threshold (Predictive Only)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Action Buttons (No emojis, crisp engineering controls) -->
+      <div class="flex flex-wrap items-center gap-1.5 text-xs font-mono">
+        <button onclick="generateFragmentation()" class="px-2.5 py-1.5 rounded border border-amber-800/80 bg-amber-950/20 hover:bg-amber-900/30 text-amber-300 font-medium transition-colors">
+          Inject Fragmentation
+        </button>
+
+        <button onclick="testAllocation(64)" class="px-2.5 py-1.5 rounded border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-medium transition-colors" title="Attempt to allocate 64KB to evaluate hole contiguity">
+          Test Alloc (64 KB)
+        </button>
+
+        <button onclick="triggerCompaction()" class="px-3 py-1.5 rounded border border-blue-600 bg-blue-600/90 hover:bg-blue-600 text-white font-medium transition-colors">
+          Trigger Reorganization
+        </button>
+
+        <span class="h-4 w-px bg-slate-800 mx-1"></span>
+
+        <button id="playBtn" onclick="togglePlay()" class="px-2.5 py-1.5 rounded border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-slate-200 font-medium transition-colors">
+          <span id="playText">Run Trace</span>
+        </button>
+
+        <button onclick="stepSimulation(1)" class="px-2.5 py-1.5 rounded border border-slate-800 bg-[#0b0d13] hover:bg-slate-800 text-slate-300 font-medium transition-colors">
+          Step
+        </button>
+
+        <button onclick="resetHeap()" class="px-2.5 py-1.5 rounded border border-slate-800 bg-[#0b0d13] hover:bg-slate-800 text-slate-400 hover:text-slate-200 font-medium transition-colors" title="Reset Virtual Heap">
+          Reset
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Physical Virtual Heap Map (Memory profiler layout) -->
+    <div class="bg-[#121622] border border-slate-800/90 rounded-md p-4 space-y-2.5">
+      <div class="flex flex-wrap items-center justify-between text-xs">
+        <div>
+          <span class="font-mono font-semibold text-slate-200">PHYSICAL_HEAP_SEGMENTS</span>
+          <span class="text-slate-500 font-mono text-[11px] ml-2">Range: 0x000000 – 0x100000 (1,048,576 bytes)</span>
+        </div>
+
+        <!-- Legend (Technical) -->
+        <div class="flex items-center gap-3 text-[11px] font-mono text-slate-400">
+          <div class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-sm bg-blue-600"></span>
+            <span>Allocated</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-sm hole-hatch"></span>
+            <span class="text-amber-400">Free Hole</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-sm bg-[#090b10] border border-slate-700"></span>
+            <span>Tail Free</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Physical Memory Bar with Ruler -->
+      <div class="space-y-1">
+        <div id="heapMap" class="w-full h-12 bg-[#090b10] rounded border border-slate-800 overflow-hidden flex relative">
+          <!-- Dynamically populated blocks -->
+        </div>
+
+        <!-- Address Ruler -->
+        <div class="relative w-full h-4 font-mono text-[10px] text-slate-500">
+          <span class="absolute left-0">0x000000</span>
+          <span class="absolute left-1/4 -translate-x-1/2">0x040000 (256K)</span>
+          <span class="absolute left-2/4 -translate-x-1/2">0x080000 (512K)</span>
+          <span class="absolute left-3/4 -translate-x-1/2">0x0C0000 (768K)</span>
+          <span class="absolute right-0">0x100000</span>
+        </div>
+      </div>
+
+      <!-- Segment Detail Inspector Strip -->
+      <div class="bg-[#0b0d13] border border-slate-800/80 rounded px-3 py-1.5 text-xs font-mono flex items-center justify-between text-slate-400">
+        <span class="text-slate-500">INSPECTOR:</span>
+        <span id="inspectorInfo" class="text-slate-300">Hover over any block in the memory map to inspect address offset, size, and allocation tag.</span>
+      </div>
+    </div>
+
+    <!-- Telemetry Graph & Decision Optimizer (Split Layout) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      
+      <!-- Left 2 Cols: Time-Series Telemetry & Forecast Curve -->
+      <div class="lg:col-span-2 bg-[#121622] border border-slate-800/90 rounded-md p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between text-xs font-mono">
+          <div>
+            <span class="font-semibold text-slate-200">FRAGMENTATION_TRAJECTORY</span>
+            <span class="text-slate-500 text-[11px] block mt-0.5">Telemetry history and model forecast</span>
+          </div>
+          <div class="flex items-center gap-3 text-[11px]">
+            <span class="text-emerald-400 flex items-center gap-1">
+              <span class="h-2 w-2 rounded-full bg-emerald-500"></span> Actual F1
+            </span>
+            <span class="text-blue-400 flex items-center gap-1">
+              <span class="h-1.5 w-3 border-t-2 border-dashed border-blue-400"></span> Forecast F1(t+10)
+            </span>
+            <span class="text-rose-400 flex items-center gap-1">
+              <span class="h-1.5 w-3 border-t border-rose-500"></span> Threshold (0.60)
+            </span>
+          </div>
+        </div>
+
+        <!-- SVG Line Chart -->
+        <div class="w-full h-44 bg-[#090b10] rounded border border-slate-800 p-2 relative flex items-center justify-center">
+          <svg id="telemetryChart" class="w-full h-full overflow-visible"></svg>
+        </div>
+
+        <!-- Multi-Horizon Inference Table Strip -->
+        <div class="grid grid-cols-4 gap-2 pt-1 border-t border-slate-800/80 font-mono text-center text-xs">
+          <div class="bg-[#0b0d13] p-1.5 rounded border border-slate-800">
+            <span class="text-[10px] text-slate-500 block">HORIZON_t+1</span>
+            <span id="predT1" class="font-semibold text-slate-300">0.000</span>
+          </div>
+          <div class="bg-[#0b0d13] p-1.5 rounded border border-slate-800">
+            <span class="text-[10px] text-slate-500 block">HORIZON_t+5</span>
+            <span id="predT5" class="font-semibold text-slate-300">0.000</span>
+          </div>
+          <div class="bg-[#0b0d13] p-1.5 rounded border border-blue-900/60">
+            <span class="text-[10px] text-blue-400 block font-semibold">HORIZON_t+10</span>
+            <span id="predT10" class="font-semibold text-blue-400">0.000</span>
+          </div>
+          <div class="bg-[#0b0d13] p-1.5 rounded border border-slate-800">
+            <span class="text-[10px] text-slate-500 block">HORIZON_t+30</span>
+            <span id="predT30" class="font-semibold text-slate-300">0.000</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right 1 Col: Cost-Benefit Optimizer Equation Breakdown -->
+      <div class="bg-[#121622] border border-slate-800/90 rounded-md p-4 space-y-3 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between text-xs font-mono">
+            <span class="font-semibold text-slate-200">OPTIMIZER_PLANE</span>
+            <span id="decisionBadge" class="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 border border-slate-700">MONITOR</span>
+          </div>
+          <div class="text-[11px] font-mono text-slate-500 mt-0.5">Argmax [ Benefit(ΔF1) - CompactionCost ]</div>
+
+          <!-- Formula Matrix Box -->
+          <div class="mt-2.5 bg-[#0b0d13] rounded p-2.5 border border-slate-800 font-mono text-[10px] text-slate-400 space-y-1">
+            <div class="text-slate-300 font-medium">A* = argmax [ ExpectedBenefit - Cost ]</div>
+            <div>Benefit = λ · (Predicted_F₁ - F₁_post)</div>
+            <div>Cost = α·blocks + β·bytes + γ·pause_ms</div>
+          </div>
+
+          <!-- Decision Parameter Values -->
+          <div class="mt-3 space-y-1.5 text-xs font-mono">
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-500">Expected Benefit (λ=1500):</span>
+              <span id="evalBenefit" class="font-semibold text-emerald-400">0.0</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-500">Estimated Migration Cost:</span>
+              <span id="evalCost" class="font-semibold text-rose-400">0.0</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-500">Net Utility (Benefit - Cost):</span>
+              <span id="evalNet" class="font-semibold text-slate-200">0.0</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-500">Estimated Bus Latency:</span>
+              <span id="evalPause" class="text-amber-400">0.0 ms</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Latest Reorganization Telemetry -->
+        <div class="bg-[#0b0d13] border border-slate-800 rounded p-2.5 text-xs font-mono space-y-1">
+          <div class="text-slate-400 flex items-center justify-between text-[11px]">
+            <span>LAST_REORG_AUDIT</span>
+            <span id="compactTick" class="text-slate-500">Tick #0</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1 text-[11px] text-slate-300 pt-1">
+            <div>Moved: <span id="compactMoved" class="text-slate-100 font-semibold">0 blocks</span></div>
+            <div>Volume: <span id="compactBytes" class="text-slate-100 font-semibold">0 KB</span></div>
+            <div>Pause: <span id="compactPause" class="text-amber-400 font-semibold">0.0 ms</span></div>
+            <div>F1 Delta: <span id="compactF1" class="text-emerald-400 font-semibold">0.00 -> 0.00</span></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Operations Console Log (Developer style) -->
+    <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3 space-y-2">
+      <div class="flex items-center justify-between text-xs font-mono">
+        <span class="font-semibold text-slate-200">AUDIT_LOG_STREAM</span>
+        <span class="text-slate-500 text-[11px]">Real-time allocations, deallocations, and compaction reports</span>
+      </div>
+
+      <div id="eventStream" class="h-28 bg-[#090b10] rounded border border-slate-800 p-2.5 font-mono text-[11px] overflow-y-auto space-y-1 custom-scroll text-slate-300">
+        <div class="text-slate-500">[SYSTEM] Profiler engine initialized. Ready for trace execution.</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Clean Sub-footer -->
+  <footer class="border-t border-slate-800/80 bg-[#0f1219] py-2 px-5 text-center text-xs font-mono text-slate-500">
+    PREFRAG Framework — Predictive & Cost-Aware Memory Reorganization
+  </footer>
+
+  <script>
+    let isPlaying = false;
+    let playTimer = null;
+    let currentCapacity = 1024 * 1024;
+
+    // Utilitarian block category palette (clean systems engineering tones)
+    const TAG_COLORS = {
+      'session_cache': 'bg-sky-700/80 border-sky-600',
+      'query_plan': 'bg-teal-700/80 border-teal-600',
+      'db_page_buffer': 'bg-blue-700/80 border-blue-600',
+      'temp_table': 'bg-indigo-700/80 border-indigo-600',
+      'frag_seed_A': 'bg-slate-600 border-slate-500',
+      'frag_seed_B': 'bg-slate-700 border-slate-600',
+      'test_payload': 'bg-violet-700/80 border-violet-600',
+      'tensor_batch': 'bg-cyan-700/80 border-cyan-600',
+      'default': 'bg-slate-700 border-slate-600'
+    };
+
+    async function fetchState() {
+      try {
+        const res = await fetch('/api/state');
+        const state = await res.json();
+        updateUI(state);
+      } catch (err) {
+        console.error("Fetch state error:", err);
+      }
+    }
+
+    function updateUI(state) {
+      currentCapacity = state.total_capacity;
+      document.getElementById('statTick').innerText = state.tick;
+      document.getElementById('statTotalCap').innerText = `${state.total_capacity_kb} KB`;
+
+      // Update KPI metrics
+      const f1 = state.snapshot.f1_largest_free_ratio;
+      document.getElementById('f1Value').innerText = f1.toFixed(4);
+      
+      const f1Badge = document.getElementById('f1Badge');
+      if (f1 >= 0.60) {
+        f1Badge.className = 'px-1 rounded text-[10px] bg-rose-950 text-rose-400 border border-rose-800';
+        f1Badge.innerText = 'CRITICAL';
+      } else if (f1 >= 0.35) {
+        f1Badge.className = 'px-1 rounded text-[10px] bg-amber-950 text-amber-400 border border-amber-800';
+        f1Badge.innerText = 'ELEVATED';
+      } else {
+        f1Badge.className = 'px-1 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700';
+        f1Badge.innerText = 'NOMINAL';
+      }
+
+      // Predicted F1
+      const predT10 = state.predictions.t10;
+      document.getElementById('predF1Value').innerText = predT10.toFixed(4);
+      document.getElementById('predT1').innerText = state.predictions.t1.toFixed(3);
+      document.getElementById('predT5').innerText = state.predictions.t5.toFixed(3);
+      document.getElementById('predT10').innerText = state.predictions.t10.toFixed(3);
+      document.getElementById('predT30').innerText = state.predictions.t30.toFixed(3);
+
+      // Holes count and metrics
+      document.getElementById('freeBlocksCount').innerText = state.snapshot.free_block_count;
+      document.getElementById('largestFreeVal').innerText = Math.round(state.snapshot.largest_free_block / 1024);
+      document.getElementById('utilVal').innerText = `${(state.snapshot.memory_utilization * 100).toFixed(1)}%`;
+      document.getElementById('compactionsCount').innerText = state.stats.total_compactions;
+
+      // Render Memory Map
+      renderHeapMap(state.blocks, state.total_capacity);
+
+      // Render Telemetry SVG Chart
+      renderTelemetryChart(state.history);
+
+      // Update Cost-Benefit Evaluation
+      if (state.last_evaluation) {
+        document.getElementById('evalBenefit').innerText = state.last_evaluation.expected_benefit;
+        document.getElementById('evalCost').innerText = state.last_evaluation.compaction_cost;
+        document.getElementById('evalNet').innerText = state.last_evaluation.net_benefit;
+        document.getElementById('evalPause').innerText = `${state.last_evaluation.pause_ms} ms`;
+        
+        const decBadge = document.getElementById('decisionBadge');
+        if (state.last_evaluation.should_intervene) {
+          decBadge.className = 'px-1.5 py-0.5 rounded text-[10px] bg-blue-900/60 text-blue-300 border border-blue-600 font-semibold';
+          decBadge.innerText = 'INTERVENE (B > C)';
+        } else {
+          decBadge.className = 'px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 border border-slate-700';
+          decBadge.innerText = 'IDLE / MONITOR';
+        }
+      }
+
+      // Update Compaction Report
+      if (state.last_compaction) {
+        document.getElementById('compactTick').innerText = `Tick #${state.last_compaction.tick}`;
+        document.getElementById('compactMoved').innerText = `${state.last_compaction.blocks_moved} blocks`;
+        document.getElementById('compactBytes').innerText = `${state.last_compaction.bytes_moved_kb} KB`;
+        document.getElementById('compactPause').innerText = `${state.last_compaction.pause_ms} ms`;
+        document.getElementById('compactF1').innerText = `${state.last_compaction.f1_before.toFixed(2)} -> ${state.last_compaction.f1_after.toFixed(2)}`;
+      }
+
+      // Render Event Stream
+      renderEventLog(state.event_log);
+    }
+
+    function renderHeapMap(blocks, totalCapacity) {
+      const container = document.getElementById('heapMap');
+      container.innerHTML = '';
+
+      blocks.forEach(b => {
+        const widthPct = Math.max(0.3, (b.size / totalCapacity) * 100);
+        const blockEl = document.createElement('div');
+        blockEl.style.width = `${widthPct}%`;
+        blockEl.style.height = '100%';
+        blockEl.className = 'relative cursor-pointer transition-colors ';
+
+        if (b.is_free) {
+          blockEl.className += 'hole-hatch';
+        } else {
+          const colorClass = TAG_COLORS[b.tag] || TAG_COLORS['default'];
+          blockEl.className += `${colorClass} border-r border-slate-900`;
+        }
+
+        blockEl.addEventListener('mouseenter', () => {
+          const inspector = document.getElementById('inspectorInfo');
+          const typeStr = b.is_free ? 'FREE HOLE (Fragmentation)' : `ALLOCATED [${b.tag || 'Payload'}]`;
+          inspector.innerHTML = `
+            <span>State: <b class="${b.is_free ? 'text-amber-400' : 'text-blue-400'}">${typeStr}</b></span> |
+            <span>Offset: <b>0x${b.start.toString(16).toUpperCase().padStart(6, '0')} – 0x${b.end.toString(16).toUpperCase().padStart(6, '0')}</b></span> |
+            <span>Size: <b>${b.size_kb} KB</b> (${b.size} B)</span>
+            ${b.alloc_id ? `| <span>AllocID: <b>#${b.alloc_id}</b></span>` : ''}
+          `;
+        });
+
+        container.appendChild(blockEl);
+      });
+    }
+
+    function renderTelemetryChart(history) {
+      const svg = document.getElementById('telemetryChart');
+      if (!history || history.length < 2) {
+        svg.innerHTML = '<text x="50%" y="50%" fill="#475569" font-size="11" font-family="monospace" text-anchor="middle">Awaiting execution steps...</text>';
+        return;
+      }
+
+      const rect = svg.getBoundingClientRect();
+      const W = rect.width || 600;
+      const H = rect.height || 176;
+      const pad = 24;
+
+      const innerW = W - pad * 2;
+      const innerH = H - pad * 2;
+
+      // Severe threshold line at Y = 0.60
+      const thresholdY = pad + innerH * (1.0 - 0.60);
+
+      const n = history.length;
+      let pathF1 = '';
+      let pathPred = '';
+
+      history.forEach((rec, idx) => {
+        const x = pad + (idx / (n - 1)) * innerW;
+        const yF1 = pad + innerH * (1.0 - Math.min(1.0, rec.f1));
+        const yPred = pad + innerH * (1.0 - Math.min(1.0, rec.predicted_f1_t10));
+
+        pathF1 += (idx === 0 ? `M ${x} ${yF1}` : ` L ${x} ${yF1}`);
+        pathPred += (idx === 0 ? `M ${x} ${yPred}` : ` L ${x} ${yPred}`);
+      });
+
+      svg.innerHTML = `
+        <!-- Threshold reference line -->
+        <line x1="${pad}" y1="${thresholdY}" x2="${W - pad}" y2="${thresholdY}" stroke="#ef4444" stroke-dasharray="3,3" stroke-width="1" />
+        <text x="${W - pad + 4}" y="${thresholdY + 3}" fill="#ef4444" font-size="9" font-family="monospace">0.60</text>
+
+        <!-- Base axes -->
+        <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H - pad}" stroke="#1e293b" stroke-width="1" />
+        <line x1="${pad}" y1="${H - pad}" x2="${W - pad}" y2="${H - pad}" stroke="#1e293b" stroke-width="1" />
+        
+        <text x="${pad - 4}" y="${pad + 4}" fill="#64748b" font-size="9" font-family="monospace" text-anchor="end">1.0</text>
+        <text x="${pad - 4}" y="${H - pad + 3}" fill="#64748b" font-size="9" font-family="monospace" text-anchor="end">0.0</text>
+
+        <!-- Forecast F1 (Blue dashed) -->
+        <path d="${pathPred}" fill="none" stroke="#60a5fa" stroke-width="1.6" stroke-dasharray="3,3" />
+
+        <!-- Actual F1 (Emerald solid) -->
+        <path d="${pathF1}" fill="none" stroke="#10b981" stroke-width="1.8" />
+      `;
+    }
+
+    function renderEventLog(logs) {
+      const container = document.getElementById('eventStream');
+      container.innerHTML = '';
+      logs.slice(-18).reverse().forEach(ev => {
+        const row = document.createElement('div');
+        row.className = 'py-0.5 flex items-start gap-1.5 font-mono text-[11px]';
+        
+        let tag = `<span class="text-slate-500">[T:${ev.tick}]</span>`;
+        if (ev.is_compact) {
+          tag = `<span class="text-blue-400 font-semibold">[REORG]</span>`;
+          row.className += ' text-blue-200';
+        } else if (ev.is_inject) {
+          tag = `<span class="text-amber-400 font-semibold">[INJECT]</span>`;
+          row.className += ' text-amber-200';
+        } else if (ev.is_error) {
+          tag = `<span class="text-rose-400 font-semibold">[OOM_ERR]</span>`;
+          row.className += ' text-rose-300';
+        } else if (ev.type === 'ALLOC') {
+          tag = `<span class="text-emerald-400">[ALLOC]</span>`;
+        } else if (ev.type === 'FREE') {
+          tag = `<span class="text-slate-400">[FREE]</span>`;
+        }
+
+        row.innerHTML = `${tag} <span>${ev.msg}</span>`;
+        container.appendChild(row);
+      });
+    }
+
+    async function stepSimulation(count = 1) {
+      await fetch('/api/step', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({count})
+      });
+      fetchState();
+    }
+
+    async function generateFragmentation() {
+      await fetch('/api/generate_fragmentation', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pattern: 'checkerboard'})
+      });
+      fetchState();
+    }
+
+    async function testAllocation(sizeKb = 64) {
+      await fetch('/api/test_allocation', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({size_kb: sizeKb})
+      });
+      fetchState();
+    }
+
+    async function triggerCompaction() {
+      await fetch('/api/compact', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+      });
+      fetchState();
+    }
+
+    async function resetHeap() {
+      await fetch('/api/reset', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+      });
+      fetchState();
+    }
+
+    async function onConfigureChange() {
+      const workload = document.getElementById('workloadSelect').value;
+      const allocator = document.getElementById('allocatorSelect').value;
+      const policy = document.getElementById('policySelect').value;
+
+      await fetch('/api/configure', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          workload: workload,
+          allocator_policy: allocator,
+          management_policy: policy
+        })
+      });
+      fetchState();
+    }
+
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      const btn = document.getElementById('playBtn');
+      const text = document.getElementById('playText');
+
+      if (isPlaying) {
+        btn.className = 'px-2.5 py-1.5 rounded border border-rose-800 bg-rose-950/60 text-rose-300 font-medium transition-colors';
+        text.innerText = 'Pause Trace';
+        playTimer = setInterval(() => stepSimulation(1), 300);
+      } else {
+        btn.className = 'px-2.5 py-1.5 rounded border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-slate-200 font-medium transition-colors';
+        text.innerText = 'Run Trace';
+        clearInterval(playTimer);
+      }
+    }
+
+    window.addEventListener('load', () => {
+      fetchState();
+      setInterval(fetchState, 1500);
+    });
+  </script>
+</body>
+</html>

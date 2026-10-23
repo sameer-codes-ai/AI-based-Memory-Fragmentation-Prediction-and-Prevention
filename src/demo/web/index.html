@@ -3,214 +3,365 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PREFRAG // Memory Profiler & Benchmark Suite</title>
+  <title>PREFRAG // Memory Fragmentation & Compaction Profiler</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root { color-scheme: dark; }
+    * {
+      box-sizing: border-box;
+      border-radius: 0 !important;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background-color: #0b0d13;
-      color: #cbd5e1;
+      background-color: #ffffff;
+      color: #000000;
+      margin: 0;
+      padding: 0;
+      line-height: 1.45;
     }
     .font-mono {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
-    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
-    .custom-scroll::-webkit-scrollbar-track { background: #0f1219; }
-    .custom-scroll::-webkit-scrollbar-thumb { background: #232a3b; border-radius: 2px; }
-    .hole-hatch {
+    /* Hatch patterns matching compiler visualization */
+    .hatch-pattern {
       background: repeating-linear-gradient(
         -45deg,
-        #141923,
-        #141923 4px,
-        #1c2333 4px,
-        #1c2333 8px
+        #000000,
+        #000000 1.5px,
+        #ffffff 1.5px,
+        #ffffff 6px
       );
-      border: 1px dashed #3a4560;
     }
-    .nav-tab.active {
-      background-color: #1a2233;
-      color: #f1f5f9;
-      border-color: #3b82f6;
+    .hatch-light {
+      background: repeating-linear-gradient(
+        -45deg,
+        #71717a,
+        #71717a 1px,
+        #ffffff 1px,
+        #ffffff 5px
+      );
     }
+    .hole-pattern {
+      background-color: #ffffff;
+      background-image: repeating-linear-gradient(
+        45deg,
+        #f4f4f5 0,
+        #f4f4f5 2px,
+        #ffffff 2px,
+        #ffffff 6px
+      );
+      border: 1px dashed #71717a;
+    }
+    .border-black-1 {
+      border: 1px solid #000000;
+    }
+    .border-gray-1 {
+      border: 1px solid #d4d4d8;
+    }
+    /* Buttons matching reference screenshot */
+    .btn-sys {
+      background: #ffffff;
+      color: #000000;
+      border: 1px solid #000000;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      text-decoration: none;
+      transition: background 0.1s;
+    }
+    .btn-sys:hover {
+      background: #f4f4f5;
+    }
+    .btn-sys:active, .btn-sys.active {
+      background: #000000;
+      color: #ffffff;
+    }
+    .btn-sys-black {
+      background: #000000;
+      color: #ffffff;
+      border: 1px solid #000000;
+      padding: 3px 12px;
+      font-size: 11px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      transition: background 0.1s;
+    }
+    .btn-sys-black:hover {
+      background: #27272a;
+    }
+    .select-sys {
+      background: #ffffff;
+      color: #000000;
+      border: 1px solid #000000;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      outline: none;
+      cursor: pointer;
+    }
+    /* Nav tabs matching reference screenshot */
+    .tab-item {
+      font-size: 13px;
+      padding: 6px 14px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: #71717a;
+      font-weight: 500;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .tab-item:hover {
+      color: #000000;
+    }
+    .tab-item.active {
+      color: #000000;
+      border-bottom: 2px solid #000000;
+      font-weight: 700;
+    }
+    /* Table styling matching reference screenshot */
+    .table-sys {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #000000;
+      font-size: 11px;
+    }
+    .table-sys th, .table-sys td {
+      border: 1px solid #000000;
+      padding: 5px 8px;
+      text-align: left;
+    }
+    .table-sys th {
+      background-color: #fafafa;
+      font-weight: 600;
+      font-size: 10px;
+      letter-spacing: 0.03em;
+    }
+    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #fafafa; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #a1a1aa; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased selection:bg-slate-700 selection:text-white">
+<body class="min-h-screen flex flex-col antialiased selection:bg-black selection:text-white">
 
   <!-- Top System Bar -->
-  <header class="border-b border-slate-800 bg-[#0f1219] px-5 py-2.5 sticky top-0 z-50">
+  <header class="border-b border-black px-6 py-2.5">
     <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
       
-      <!-- Brand & Tabs -->
-      <div class="flex items-center gap-4">
-        <div class="flex items-center gap-2">
-          <span class="font-mono font-bold text-sm text-slate-100 tracking-wider">PREFRAG</span>
-          <span class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">v1.2</span>
-        </div>
-        
-        <!-- Navigation View Tabs -->
-        <nav class="flex items-center gap-1 font-mono text-xs">
-          <button id="tabBtnProfiler" onclick="switchView('profiler')" class="nav-tab active px-3 py-1 rounded border border-transparent text-slate-400 hover:text-slate-200 transition-colors">
-            Real-Time Profiler
-          </button>
-          <button id="tabBtnInternal" onclick="switchView('internal')" class="nav-tab px-3 py-1 rounded border border-transparent text-slate-400 hover:text-slate-200 transition-colors">
-            Internal Benchmarks
-          </button>
-          <button id="tabBtnLiterature" onclick="switchView('literature')" class="nav-tab px-3 py-1 rounded border border-transparent text-slate-400 hover:text-slate-200 transition-colors">
-            Literature & SOTA Comparison
-          </button>
-        </nav>
+      <!-- Brand & Title -->
+      <div class="flex items-center gap-3">
+        <span class="font-bold text-base text-black tracking-tight">Incremental Memory Defragmenter</span>
+        <span class="text-[11px] font-mono px-1 py-0.5 border border-black text-black">PREFRAG v1.2</span>
       </div>
 
-      <!-- Live Connection Telemetry -->
-      <div class="flex items-center gap-3 text-xs font-mono">
-        <div class="flex items-center gap-1.5 text-slate-400">
-          <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-          <span id="connStatus" class="text-slate-300">ONLINE</span>
+      <!-- Header Controls Strip -->
+      <div class="flex flex-wrap items-center gap-3 text-xs">
+        <div class="flex items-center gap-1.5 font-mono">
+          <span class="text-zinc-500">Workload</span>
+          <select id="workloadSelect" onchange="onConfigureChange()" class="select-sys">
+            <option value="database" selected>Database (B-Tree + Buffer Pool)</option>
+            <option value="web_server">Web Server (HTTP Bursts)</option>
+            <option value="scientific">Scientific (Tensor Cycles)</option>
+            <option value="adversarial_churn">Adversarial Churn</option>
+            <option value="game_engine">Game Engine (Frame Alloc)</option>
+          </select>
         </div>
-        <span class="text-slate-700">/</span>
-        <div>
-          <span class="text-slate-500">TICK</span>
-          <span id="statTick" class="text-slate-200 font-semibold ml-1">0</span>
+
+        <div class="flex items-center gap-1.5 font-mono">
+          <span class="text-zinc-500">Allocator</span>
+          <select id="allocatorSelect" onchange="onConfigureChange()" class="select-sys">
+            <option value="best_fit" selected>Best-Fit (Selected Optimal)</option>
+            <option value="first_fit">First-Fit</option>
+            <option value="worst_fit">Worst-Fit</option>
+            <option value="next_fit">Next-Fit</option>
+          </select>
         </div>
-        <span class="text-slate-700">/</span>
-        <div>
-          <span class="text-slate-500">HEAP</span>
-          <span id="statTotalCap" class="text-slate-200 font-semibold ml-1">1024 KB</span>
+
+        <div class="flex items-center gap-1.5 font-mono">
+          <span class="text-zinc-500">Policy</span>
+          <select id="policySelect" onchange="onConfigureChange()" class="select-sys">
+            <option value="E5: PREFRAG (Predictive + Cost-Aware)" selected>E5: PREFRAG (Cost-Aware Utility)</option>
+            <option value="E1: Reactive Baseline">E1: Reactive Baseline</option>
+            <option value="E2: Always-Proactive">E2: Always-Proactive</option>
+            <option value="E4: ML + Threshold">E4: ML + Threshold</option>
+          </select>
         </div>
+
+        <button onclick="resetHeap()" class="btn-sys">Reset</button>
       </div>
 
     </div>
   </header>
 
+  <!-- Legend Status Bar -->
+  <div class="border-b border-black bg-white px-6 py-1.5 text-xs font-mono">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-5 text-[11px]">
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 border border-black bg-white"></span> Free Space (Hole)</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 border border-black hatch-pattern"></span> Allocated Block</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 border border-black bg-black"></span> Reorganized / Compacted</span>
+      </div>
+      <div class="flex items-center gap-3 text-zinc-600 text-[11px]">
+        <span>STATUS: <strong id="connStatus" class="text-black">ONLINE</strong></span>
+        <span>•</span>
+        <span>TICK: <strong id="statTick" class="text-black">0</strong></span>
+        <span>•</span>
+        <span>CAPACITY: <strong id="statTotalCap" class="text-black">1024 KB</strong></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Main View Container -->
-  <main class="max-w-7xl mx-auto w-full p-5 space-y-4 flex-1">
+  <main class="max-w-7xl mx-auto w-full p-6 space-y-5 flex-1">
+
+    <!-- Top Summary & Stacked Progress Bar (Directly matching reference screenshot) -->
+    <div class="border border-black p-4 space-y-3 bg-white">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="tickSummaryHeading" class="font-bold text-xs uppercase tracking-wider text-black">
+          WHAT HAPPENED IN TICK 0
+        </h2>
+        <div id="tickSummarySteps" class="text-xs font-mono text-zinc-500">
+          0 steps · 0.0 ms pause
+        </div>
+      </div>
+
+      <ul id="tickSummaryBullets" class="text-xs space-y-1 text-zinc-800 font-mono">
+        <li>• Engine initialized. Awaiting workload allocation traces.</li>
+        <li>• ML predictor ready across horizons t+1, t+5, t+10, t+30.</li>
+        <li>• Cost-benefit optimizer gating defragmentation pass: Net Utility = Expected Benefit - Cost.</li>
+      </ul>
+
+      <!-- Stacked Proportional Bar -->
+      <div class="space-y-1 pt-1">
+        <div class="w-full h-5 border border-black flex overflow-hidden bg-white">
+          <div id="summaryBarFree" style="width: 100%" class="h-full bg-white border-r border-black" title="Free space"></div>
+          <div id="summaryBarAlloc" style="width: 0%" class="h-full hatch-pattern border-r border-black" title="Allocated data"></div>
+          <div id="summaryBarCompacted" style="width: 0%" class="h-full bg-black" title="Compacted blocks"></div>
+        </div>
+        <div class="flex items-center justify-between text-[11px] font-mono text-zinc-600 pt-0.5">
+          <div class="flex items-center gap-4">
+            <span><span class="inline-block w-2.5 h-2.5 border border-black bg-white mr-1 align-middle"></span><span id="summaryFreeText">1024 KB free</span></span>
+            <span><span class="inline-block w-2.5 h-2.5 border border-black hatch-pattern mr-1 align-middle"></span><span id="summaryAllocText">0 KB allocated</span></span>
+            <span><span class="inline-block w-2.5 h-2.5 border border-black bg-black mr-1 align-middle"></span><span id="summaryContigText">1024 KB max contig</span></span>
+          </div>
+          <div>Heap Base: 0x000000 – 0x100000</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs (Pipeline / Code / Functions style) -->
+    <div class="border-b border-black flex items-center justify-between gap-4">
+      <nav class="flex items-center gap-2">
+        <button id="tabBtnProfiler" onclick="switchView('profiler')" class="tab-item active">
+          Real-Time Profiler
+        </button>
+        <button id="tabBtnInternal" onclick="switchView('internal')" class="tab-item">
+          Internal Benchmarks
+        </button>
+        <button id="tabBtnLiterature" onclick="switchView('literature')" class="tab-item">
+          Literature & SOTA Comparison
+        </button>
+      </nav>
+
+      <!-- Operation Controls (Simple view / Every step style) -->
+      <div class="flex items-center gap-1.5 pb-1">
+        <button onclick="generateFragmentation()" class="btn-sys">
+          Inject Fragmentation
+        </button>
+        <button onclick="testAllocation(64)" class="btn-sys">
+          Test Alloc (64 KB)
+        </button>
+        <button onclick="triggerCompaction()" class="btn-sys-black">
+          Trigger Reorganization
+        </button>
+        <button id="playBtn" onclick="togglePlay()" class="btn-sys">
+          <span id="playText">Run Trace</span>
+        </button>
+        <button onclick="stepSimulation(1)" class="btn-sys">
+          Step
+        </button>
+      </div>
+    </div>
 
     <!-- ========================================================================= -->
     <!-- VIEW 1: REAL-TIME PROFILER & HEAP MAP                                    -->
     <!-- ========================================================================= -->
     <div id="viewProfiler" class="space-y-4">
       
-      <!-- KPI Telemetry Bar -->
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
-          <div class="flex justify-between items-center text-[11px] font-mono text-slate-400">
-            <span>METRIC_F1</span>
-            <span id="f1Badge" class="px-1 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700">NOMINAL</span>
-          </div>
-          <div class="mt-1.5 text-xl font-mono font-bold text-slate-100" id="f1Value">0.0000</div>
-          <div class="text-[10px] font-mono text-slate-500 mt-0.5">1 - (MaxFree / FreeTotal)</div>
-        </div>
-
-        <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
-          <div class="flex justify-between items-center text-[11px] font-mono text-slate-400">
-            <span>FORECAST_t+10</span>
-            <span class="px-1 rounded text-[10px] bg-blue-950 text-blue-400 border border-blue-900/60">M3/RF</span>
-          </div>
-          <div class="mt-1.5 text-xl font-mono font-bold text-blue-400" id="predF1Value">0.0000</div>
-          <div class="text-[10px] font-mono text-slate-500 mt-0.5">Proactive Target Horizon</div>
-        </div>
-
-        <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
-          <div class="text-[11px] font-mono text-slate-400">FREE_HOLES (F3)</div>
-          <div class="mt-1.5 text-xl font-mono font-bold text-amber-400" id="freeBlocksCount">1</div>
-          <div class="text-[10px] font-mono text-slate-500 mt-0.5">Disjoint unallocated chunks</div>
-        </div>
-
-        <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
-          <div class="text-[11px] font-mono text-slate-400">MAX_CONTIGUOUS</div>
-          <div class="mt-1.5 text-xl font-mono font-bold text-slate-100" id="largestFreeVal">1024 <span class="text-xs text-slate-400 font-normal">KB</span></div>
-          <div class="text-[10px] font-mono text-slate-500 mt-0.5">Ceiling for single alloc</div>
-        </div>
-
-        <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
-          <div class="text-[11px] font-mono text-slate-400">HEAP_UTILIZATION</div>
-          <div class="mt-1.5 text-xl font-mono font-bold text-slate-100" id="utilVal">0.0%</div>
-          <div class="text-[10px] font-mono text-slate-500 mt-0.5">Allocated / Total Bytes</div>
-        </div>
-
-        <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3">
-          <div class="text-[11px] font-mono text-slate-400">REORGS_TOTAL</div>
-          <div class="mt-1.5 text-xl font-mono font-bold text-slate-100" id="compactionsCount">0</div>
-          <div class="text-[10px] font-mono text-slate-500 mt-0.5">Sliding passes executed</div>
-        </div>
+      <!-- Telemetry KPI Table (Compiler Matrix Style) -->
+      <div class="border border-black overflow-x-auto">
+        <table class="table-sys font-mono">
+          <thead>
+            <tr>
+              <th>F1 Fragmentation</th>
+              <th>Forecast (t+10)</th>
+              <th>Free Holes (F3)</th>
+              <th>Max Contiguous</th>
+              <th>Heap Utilization</th>
+              <th>Total Reorgs</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="flex items-baseline justify-between">
+                  <span id="f1Value" class="text-base font-bold text-black">0.0000</span>
+                  <span id="f1Badge" class="text-[10px] px-1 py-0.5 border border-black bg-white text-black font-semibold">NOMINAL</span>
+                </div>
+                <div class="text-[10px] text-zinc-500 mt-0.5">1 - (MaxFree / FreeTotal)</div>
+              </td>
+              <td>
+                <div class="flex items-baseline justify-between">
+                  <span id="predF1Value" class="text-base font-bold text-black">0.0000</span>
+                  <span class="text-[10px] px-1 py-0.5 border border-black bg-zinc-100 text-black">M3/RF</span>
+                </div>
+                <div class="text-[10px] text-zinc-500 mt-0.5">Proactive Target Horizon</div>
+              </td>
+              <td>
+                <div class="text-base font-bold text-black" id="freeBlocksCount">1</div>
+                <div class="text-[10px] text-zinc-500 mt-0.5">Disjoint unallocated chunks</div>
+              </td>
+              <td>
+                <div class="text-base font-bold text-black" id="largestFreeVal">1024 <span class="text-xs font-normal text-zinc-500">KB</span></div>
+                <div class="text-[10px] text-zinc-500 mt-0.5">Ceiling for single alloc</div>
+              </td>
+              <td>
+                <div class="text-base font-bold text-black" id="utilVal">0.0%</div>
+                <div class="text-[10px] text-zinc-500 mt-0.5">Allocated / Total capacity</div>
+              </td>
+              <td>
+                <div class="text-base font-bold text-black" id="compactionsCount">0</div>
+                <div class="text-[10px] text-zinc-500 mt-0.5">Sliding passes executed</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <!-- Controls & Operations Strip -->
-      <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3 flex flex-wrap items-center justify-between gap-3">
-        <div class="flex flex-wrap items-center gap-2.5 text-xs font-mono">
+      <!-- Physical Heap Segments Map (Full width system ruler) -->
+      <div class="border border-black p-4 space-y-2 bg-white">
+        <div class="flex flex-wrap items-center justify-between text-xs font-mono">
           <div>
-            <label class="text-slate-500 block text-[10px] uppercase">Workload</label>
-            <select id="workloadSelect" onchange="onConfigureChange()" class="bg-[#0b0d13] border border-slate-700/80 rounded px-2 py-1 text-slate-200 focus:outline-none">
-              <option value="database" selected>Database (B-Tree + Buffer Pool)</option>
-              <option value="web_server">Web Server (HTTP Bursts)</option>
-              <option value="scientific">Scientific (Tensor Cycles)</option>
-              <option value="adversarial_churn">Adversarial Churn</option>
-              <option value="game_engine">Game Engine (Frame Alloc)</option>
-            </select>
+            <span class="font-bold text-black">PHYSICAL_HEAP_SEGMENTS</span>
+            <span class="text-zinc-500 text-[11px] ml-2">Range: 0x000000 – 0x100000 (1024 KB Physical Arena)</span>
           </div>
-
-          <div>
-            <label class="text-slate-500 block text-[10px] uppercase">Allocator</label>
-            <select id="allocatorSelect" onchange="onConfigureChange()" class="bg-[#0b0d13] border border-slate-700/80 rounded px-2 py-1 text-slate-200 focus:outline-none">
-              <option value="best_fit" selected>Best-Fit (Evaluated Optimal)</option>
-              <option value="first_fit">First-Fit</option>
-              <option value="worst_fit">Worst-Fit</option>
-              <option value="next_fit">Next-Fit</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="text-slate-500 block text-[10px] uppercase">Policy Regime</label>
-            <select id="policySelect" onchange="onConfigureChange()" class="bg-[#0b0d13] border border-slate-700/80 rounded px-2 py-1 text-slate-200 focus:outline-none">
-              <option value="E5: PREFRAG (Predictive + Cost-Aware)" selected>E5: PREFRAG (Cost-Aware Utility)</option>
-              <option value="E1: Reactive Baseline">E1: Reactive Baseline (Late Stall)</option>
-              <option value="E2: Always-Proactive">E2: Always-Proactive (Blind Interval)</option>
-              <option value="E4: ML + Threshold">E4: ML + Threshold (Predictive Only)</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-1.5 text-xs font-mono">
-          <button onclick="generateFragmentation()" class="px-2.5 py-1.5 rounded border border-amber-800/80 bg-amber-950/20 hover:bg-amber-900/30 text-amber-300 font-medium transition-colors">
-            Inject Fragmentation
-          </button>
-          <button onclick="testAllocation(64)" class="px-2.5 py-1.5 rounded border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-medium transition-colors">
-            Test Alloc (64 KB)
-          </button>
-          <button onclick="triggerCompaction()" class="px-3 py-1.5 rounded border border-blue-600 bg-blue-600/90 hover:bg-blue-600 text-white font-medium transition-colors">
-            Trigger Reorganization
-          </button>
-          <span class="h-4 w-px bg-slate-800 mx-1"></span>
-          <button id="playBtn" onclick="togglePlay()" class="px-2.5 py-1.5 rounded border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-slate-200 font-medium transition-colors">
-            <span id="playText">Run Trace</span>
-          </button>
-          <button onclick="stepSimulation(1)" class="px-2 py-1.5 rounded border border-slate-800 bg-[#0b0d13] hover:bg-slate-800 text-slate-300 font-medium transition-colors">
-            Step
-          </button>
-          <button onclick="resetHeap()" class="px-2 py-1.5 rounded border border-slate-800 bg-[#0b0d13] hover:bg-slate-800 text-slate-400 hover:text-slate-200 font-medium transition-colors">
-            Reset
-          </button>
-        </div>
-      </div>
-
-      <!-- Physical Heap Segments Map -->
-      <div class="bg-[#121622] border border-slate-800/90 rounded-md p-4 space-y-2.5">
-        <div class="flex flex-wrap items-center justify-between text-xs">
-          <div>
-            <span class="font-mono font-semibold text-slate-200">PHYSICAL_HEAP_SEGMENTS</span>
-            <span class="text-slate-500 font-mono text-[11px] ml-2">Range: 0x000000 – 0x100000 (1 MB)</span>
-          </div>
-          <div class="flex items-center gap-3 text-[11px] font-mono text-slate-400">
-            <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-sm bg-blue-600"></span> Allocated</span>
-            <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-sm hole-hatch"></span> Free Hole</span>
-            <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-sm bg-[#090b10] border border-slate-700"></span> Tail Free</span>
+          <div class="text-[11px] text-zinc-600">
+            Click or hover blocks to inspect metadata
           </div>
         </div>
 
         <div class="space-y-1">
-          <div id="heapMap" class="w-full h-12 bg-[#090b10] rounded border border-slate-800 overflow-hidden flex relative"></div>
-          <div class="relative w-full h-4 font-mono text-[10px] text-slate-500">
+          <div id="heapMap" class="w-full h-12 border border-black bg-white overflow-hidden flex relative"></div>
+          <div class="relative w-full h-4 font-mono text-[10px] text-zinc-600">
             <span class="absolute left-0">0x000000</span>
             <span class="absolute left-1/4 -translate-x-1/2">0x040000 (256K)</span>
             <span class="absolute left-2/4 -translate-x-1/2">0x080000 (512K)</span>
@@ -219,103 +370,112 @@
           </div>
         </div>
 
-        <div class="bg-[#0b0d13] border border-slate-800/80 rounded px-3 py-1.5 text-xs font-mono flex items-center justify-between text-slate-400">
-          <span class="text-slate-500">INSPECTOR:</span>
-          <span id="inspectorInfo" class="text-slate-300">Hover over any block in the memory map to inspect address offset, size, and allocation tag.</span>
+        <div class="border border-black bg-zinc-50 p-2 text-xs font-mono flex items-center justify-between text-zinc-700">
+          <span class="font-bold text-black">INSPECTOR:</span>
+          <span id="inspectorInfo" class="text-zinc-800">Hover over any block in the memory map to inspect address offset, size, and allocation tag.</span>
         </div>
       </div>
 
-      <!-- Telemetry Graph & Decision Optimizer -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <div class="lg:col-span-2 bg-[#121622] border border-slate-800/90 rounded-md p-4 space-y-3">
+      <!-- Telemetry Graph & Decision Optimizer (2-Column Grid) -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        
+        <!-- SVG Trajectory Plot -->
+        <div class="lg:col-span-2 border border-black p-4 space-y-3 bg-white">
           <div class="flex flex-wrap items-center justify-between text-xs font-mono">
             <div>
-              <span class="font-semibold text-slate-200">FRAGMENTATION_TRAJECTORY</span>
-              <span class="text-slate-500 text-[11px] block mt-0.5">Telemetry history and model forecast</span>
+              <span class="font-bold text-black">FRAGMENTATION_TRAJECTORY (F1)</span>
+              <span class="text-zinc-500 text-[11px] block mt-0.5">Empirical telemetry trajectory vs ML model forecast</span>
             </div>
-            <div class="flex items-center gap-3 text-[11px]">
-              <span class="text-emerald-400 flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-emerald-500"></span> Actual F1</span>
-              <span class="text-blue-400 flex items-center gap-1"><span class="h-1.5 w-3 border-t-2 border-dashed border-blue-400"></span> Forecast F1(t+10)</span>
-              <span class="text-rose-400 flex items-center gap-1"><span class="h-1.5 w-3 border-t border-rose-500"></span> Threshold (0.60)</span>
+            <div class="flex items-center gap-4 text-[11px]">
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-black inline-block"></span> Actual F1</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 border-t border-dashed border-zinc-700 inline-block"></span> Forecast F1(t+10)</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 border-t border-dotted border-black inline-block"></span> Threshold (0.60)</span>
             </div>
           </div>
-          <div class="w-full h-44 bg-[#090b10] rounded border border-slate-800 p-2 relative flex items-center justify-center">
+
+          <div class="w-full h-44 border border-black bg-white p-2 relative flex items-center justify-center">
             <svg id="telemetryChart" class="w-full h-full overflow-visible"></svg>
           </div>
-          <div class="grid grid-cols-4 gap-2 pt-1 border-t border-slate-800/80 font-mono text-center text-xs">
-            <div class="bg-[#0b0d13] p-1.5 rounded border border-slate-800">
-              <span class="text-[10px] text-slate-500 block">HORIZON_t+1</span>
-              <span id="predT1" class="font-semibold text-slate-300">0.000</span>
+
+          <!-- Multi-Horizon Prediction Row -->
+          <div class="grid grid-cols-4 gap-2 pt-1 font-mono text-center text-xs">
+            <div class="border border-black p-1.5 bg-zinc-50">
+              <span class="text-[10px] text-zinc-500 block">HORIZON_t+1</span>
+              <span id="predT1" class="font-bold text-black">0.000</span>
             </div>
-            <div class="bg-[#0b0d13] p-1.5 rounded border border-slate-800">
-              <span class="text-[10px] text-slate-500 block">HORIZON_t+5</span>
-              <span id="predT5" class="font-semibold text-slate-300">0.000</span>
+            <div class="border border-black p-1.5 bg-zinc-50">
+              <span class="text-[10px] text-zinc-500 block">HORIZON_t+5</span>
+              <span id="predT5" class="font-bold text-black">0.000</span>
             </div>
-            <div class="bg-[#0b0d13] p-1.5 rounded border border-blue-900/60">
-              <span class="text-[10px] text-blue-400 block font-semibold">HORIZON_t+10</span>
-              <span id="predT10" class="font-semibold text-blue-400">0.000</span>
+            <div class="border border-black p-1.5 bg-black text-white">
+              <span class="text-[10px] text-zinc-300 block font-semibold">HORIZON_t+10</span>
+              <span id="predT10" class="font-bold text-white">0.000</span>
             </div>
-            <div class="bg-[#0b0d13] p-1.5 rounded border border-slate-800">
-              <span class="text-[10px] text-slate-500 block">HORIZON_t+30</span>
-              <span id="predT30" class="font-semibold text-slate-300">0.000</span>
+            <div class="border border-black p-1.5 bg-zinc-50">
+              <span class="text-[10px] text-zinc-500 block">HORIZON_t+30</span>
+              <span id="predT30" class="font-bold text-black">0.000</span>
             </div>
           </div>
         </div>
 
-        <div class="bg-[#121622] border border-slate-800/90 rounded-md p-4 space-y-3 flex flex-col justify-between">
+        <!-- Optimizer Decision Plane -->
+        <div class="border border-black p-4 space-y-3 bg-white flex flex-col justify-between">
           <div>
             <div class="flex items-center justify-between text-xs font-mono">
-              <span class="font-semibold text-slate-200">OPTIMIZER_PLANE</span>
-              <span id="decisionBadge" class="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 border border-slate-700">MONITOR</span>
+              <span class="font-bold text-black">OPTIMIZER_PLANE</span>
+              <span id="decisionBadge" class="px-1.5 py-0.5 border border-black text-[10px] bg-white text-black font-semibold">MONITOR</span>
             </div>
-            <div class="mt-2.5 bg-[#0b0d13] rounded p-2.5 border border-slate-800 font-mono text-[10px] text-slate-400 space-y-1">
-              <div class="text-slate-300 font-medium">A* = argmax [ ExpectedBenefit - Cost ]</div>
+
+            <div class="mt-2.5 border border-black p-2 bg-zinc-50 font-mono text-[10px] text-zinc-800 space-y-0.5">
+              <div class="font-bold text-black">A* = argmax [ ExpectedBenefit - Cost ]</div>
               <div>Benefit = λ · (Predicted_F₁ - F₁_post)</div>
               <div>Cost = α·blocks + β·bytes + γ·pause_ms</div>
             </div>
+
             <div class="mt-3 space-y-1.5 text-xs font-mono">
-              <div class="flex justify-between py-1 border-b border-slate-800/60">
-                <span class="text-slate-500">Expected Benefit (λ=1500):</span>
-                <span id="evalBenefit" class="font-semibold text-emerald-400">0.0</span>
+              <div class="flex justify-between py-1 border-b border-zinc-200">
+                <span class="text-zinc-600">Expected Benefit (λ=1500):</span>
+                <span id="evalBenefit" class="font-bold text-black">0.0</span>
               </div>
-              <div class="flex justify-between py-1 border-b border-slate-800/60">
-                <span class="text-slate-500">Estimated Migration Cost:</span>
-                <span id="evalCost" class="font-semibold text-rose-400">0.0</span>
+              <div class="flex justify-between py-1 border-b border-zinc-200">
+                <span class="text-zinc-600">Estimated Migration Cost:</span>
+                <span id="evalCost" class="font-bold text-black">0.0</span>
               </div>
-              <div class="flex justify-between py-1 border-b border-slate-800/60">
-                <span class="text-slate-500">Net Utility (Benefit - Cost):</span>
-                <span id="evalNet" class="font-semibold text-slate-200">0.0</span>
+              <div class="flex justify-between py-1 border-b border-zinc-200">
+                <span class="text-zinc-600">Net Utility (Benefit - Cost):</span>
+                <span id="evalNet" class="font-bold text-black">0.0</span>
               </div>
-              <div class="flex justify-between py-1 border-b border-slate-800/60">
-                <span class="text-slate-500">Estimated Bus Latency:</span>
-                <span id="evalPause" class="text-amber-400">0.0 ms</span>
+              <div class="flex justify-between py-1 border-b border-zinc-200">
+                <span class="text-zinc-600">Estimated Bus Latency:</span>
+                <span id="evalPause" class="font-bold text-black">0.0 ms</span>
               </div>
             </div>
           </div>
 
-          <div class="bg-[#0b0d13] border border-slate-800 rounded p-2.5 text-xs font-mono space-y-1">
-            <div class="text-slate-400 flex items-center justify-between text-[11px]">
+          <div class="border border-black p-2.5 text-xs font-mono space-y-1 bg-zinc-50">
+            <div class="flex items-center justify-between text-[11px] font-bold text-black">
               <span>LAST_REORG_AUDIT</span>
-              <span id="compactTick" class="text-slate-500">Tick #0</span>
+              <span id="compactTick" class="text-zinc-500 font-normal">Tick #0</span>
             </div>
-            <div class="grid grid-cols-2 gap-1 text-[11px] text-slate-300 pt-1">
-              <div>Moved: <span id="compactMoved" class="text-slate-100 font-semibold">0 blocks</span></div>
-              <div>Volume: <span id="compactBytes" class="text-slate-100 font-semibold">0 KB</span></div>
-              <div>Pause: <span id="compactPause" class="text-amber-400 font-semibold">0.0 ms</span></div>
-              <div>F1 Delta: <span id="compactF1" class="text-emerald-400 font-semibold">0.00 -> 0.00</span></div>
+            <div class="grid grid-cols-2 gap-1 text-[11px] text-zinc-800 pt-1">
+              <div>Moved: <strong id="compactMoved" class="text-black">0 blocks</strong></div>
+              <div>Volume: <strong id="compactBytes" class="text-black">0 KB</strong></div>
+              <div>Pause: <strong id="compactPause" class="text-black">0.0 ms</strong></div>
+              <div>F1 Delta: <strong id="compactF1" class="text-black">0.00 -> 0.00</strong></div>
             </div>
           </div>
         </div>
+
       </div>
 
-      <!-- Operations Console Log -->
-      <div class="bg-[#121622] border border-slate-800/90 rounded-md p-3 space-y-2">
+      <!-- Real-Time Audit Console Log -->
+      <div class="border border-black p-4 space-y-2 bg-white">
         <div class="flex items-center justify-between text-xs font-mono">
-          <span class="font-semibold text-slate-200">AUDIT_LOG_STREAM</span>
-          <span class="text-slate-500 text-[11px]">Real-time allocations, deallocations, and compaction reports</span>
+          <span class="font-bold text-black">AUDIT_LOG_STREAM</span>
+          <span class="text-zinc-500 text-[11px]">Real-time allocations, deallocations, and compaction reports</span>
         </div>
-        <div id="eventStream" class="h-28 bg-[#090b10] rounded border border-slate-800 p-2.5 font-mono text-[11px] overflow-y-auto space-y-1 custom-scroll text-slate-300">
-          <div class="text-slate-500">[SYSTEM] Profiler engine initialized. Ready for trace execution.</div>
+        <div id="eventStream" class="h-28 border border-black p-2.5 font-mono text-[11px] overflow-y-auto space-y-1 custom-scroll bg-white text-black">
+          <div class="text-zinc-500">[SYSTEM] Profiler engine initialized. Ready for trace execution.</div>
         </div>
       </div>
 
@@ -327,161 +487,161 @@
     <div id="viewInternal" class="hidden space-y-4 font-mono">
       
       <!-- Top Overview Banner -->
-      <div class="bg-[#121622] border border-slate-800 rounded-md p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div class="border border-black p-4 flex flex-wrap items-center justify-between gap-3 text-xs bg-white">
         <div>
-          <span class="font-bold text-slate-100 text-sm block">INTERNAL_BENCHMARK_SUITE</span>
-          <span class="text-slate-400 text-xs">Empirical evaluation of allocation strategies, multi-horizon forecasters (B1-B5 vs M1-M3), and closed-loop control regimes (E1-E5).</span>
+          <span class="font-bold text-black text-sm block">INTERNAL_BENCHMARK_SUITE</span>
+          <span class="text-zinc-600 text-xs">Empirical evaluation of allocation strategies, multi-horizon forecasters (B1-B5 vs M1-M3), and closed-loop control regimes (E1-E5).</span>
         </div>
-        <a href="#plots-info" onclick="alert('Vector publication figures are generated in results/plots/ (fig1-fig5)')" class="px-2.5 py-1 rounded border border-slate-700 bg-slate-800/80 text-slate-300 hover:text-white">
-          Saved in results/plots/
-        </a>
+        <span class="px-2 py-0.5 border border-black bg-zinc-50 text-black text-[11px]">
+          Vector figures generated in results/plots/
+        </span>
       </div>
 
       <!-- Grid 1: Allocation Susceptibility & Out-of-Memory Failures -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Allocator Mean F1 -->
-        <div class="bg-[#121622] border border-slate-800 rounded-md p-4 space-y-3">
+        <div class="border border-black p-4 space-y-3 bg-white">
           <div class="flex justify-between items-center text-xs">
-            <span class="font-bold text-slate-200">FIGURE 1A: ALLOCATOR SUSCEPTIBILITY (MEAN F1)</span>
-            <span class="text-slate-500 text-[11px]">5 Workload Families</span>
+            <span class="font-bold text-black">FIGURE 1A: ALLOCATOR SUSCEPTIBILITY (MEAN F1)</span>
+            <span class="text-zinc-500 text-[11px]">5 Workload Families</span>
           </div>
-          <div class="text-xs text-slate-400">Best-Fit systematically minimizes fragmentation by matching block sizes. Worst-Fit and Next-Fit cause catastrophic degradation ($F_1 > 0.90$).</div>
+          <div class="text-xs text-zinc-700">Best-Fit systematically minimizes fragmentation by matching block sizes. Worst-Fit and Next-Fit cause catastrophic degradation (F1 > 0.90).</div>
           
           <!-- Bar Graph Representation -->
-          <div class="space-y-2 pt-2 text-[11px]">
+          <div class="space-y-2.5 pt-2 text-[11px]">
             <div>
-              <div class="flex justify-between text-slate-400 mb-0.5"><span>Database Churn</span><span>Best-Fit: 0.8077 | Worst-Fit: 0.9522</span></div>
-              <div class="w-full bg-[#090b10] h-4 rounded overflow-hidden flex">
-                <div style="width: 80.8%" class="bg-blue-600 h-full" title="Best-Fit: 0.8077"></div>
-                <div style="width: 14.4%" class="bg-rose-800/80 h-full" title="Worst-Fit: 0.9522"></div>
+              <div class="flex justify-between text-zinc-800 mb-0.5"><span>Database Churn</span><span>Best-Fit: 0.8077 | Worst-Fit: 0.9522</span></div>
+              <div class="w-full border border-black h-4 overflow-hidden flex bg-white">
+                <div style="width: 80.8%" class="bg-black h-full" title="Best-Fit: 0.8077"></div>
+                <div style="width: 14.4%" class="hatch-pattern h-full" title="Worst-Fit: 0.9522"></div>
               </div>
             </div>
             <div>
-              <div class="flex justify-between text-slate-400 mb-0.5"><span>Scientific Phased</span><span>Best-Fit: 0.1473 | Worst-Fit: 0.4875</span></div>
-              <div class="w-full bg-[#090b10] h-4 rounded overflow-hidden flex">
-                <div style="width: 14.7%" class="bg-blue-600 h-full"></div>
-                <div style="width: 34.0%" class="bg-rose-800/80 h-full"></div>
+              <div class="flex justify-between text-zinc-800 mb-0.5"><span>Scientific Phased</span><span>Best-Fit: 0.1473 | Worst-Fit: 0.4875</span></div>
+              <div class="w-full border border-black h-4 overflow-hidden flex bg-white">
+                <div style="width: 14.7%" class="bg-black h-full"></div>
+                <div style="width: 34.0%" class="hatch-pattern h-full"></div>
               </div>
             </div>
             <div>
-              <div class="flex justify-between text-slate-400 mb-0.5"><span>Adversarial Pinned Churn</span><span>Best-Fit: 0.0488 | Worst-Fit: 0.9264</span></div>
-              <div class="w-full bg-[#090b10] h-4 rounded overflow-hidden flex">
-                <div style="width: 4.9%" class="bg-blue-600 h-full"></div>
-                <div style="width: 87.7%" class="bg-rose-800/80 h-full"></div>
+              <div class="flex justify-between text-zinc-800 mb-0.5"><span>Adversarial Pinned Churn</span><span>Best-Fit: 0.0488 | Worst-Fit: 0.9264</span></div>
+              <div class="w-full border border-black h-4 overflow-hidden flex bg-white">
+                <div style="width: 4.9%" class="bg-black h-full"></div>
+                <div style="width: 87.7%" class="hatch-pattern h-full"></div>
               </div>
             </div>
             <div>
-              <div class="flex justify-between text-slate-400 mb-0.5"><span>Game Engine Frames</span><span>Best-Fit: 0.6313 | Worst-Fit: 0.8613</span></div>
-              <div class="w-full bg-[#090b10] h-4 rounded overflow-hidden flex">
-                <div style="width: 63.1%" class="bg-blue-600 h-full"></div>
-                <div style="width: 23.0%" class="bg-rose-800/80 h-full"></div>
+              <div class="flex justify-between text-zinc-800 mb-0.5"><span>Game Engine Frames</span><span>Best-Fit: 0.6313 | Worst-Fit: 0.8613</span></div>
+              <div class="w-full border border-black h-4 overflow-hidden flex bg-white">
+                <div style="width: 63.1%" class="bg-black h-full"></div>
+                <div style="width: 23.0%" class="hatch-pattern h-full"></div>
               </div>
             </div>
           </div>
-          <div class="flex items-center gap-4 text-[10px] text-slate-500 pt-1 border-t border-slate-800">
-            <span class="flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-blue-600"></span> Best-Fit (Selected)</span>
-            <span class="flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-rose-800"></span> Worst-Fit (Pathological)</span>
+          <div class="flex items-center gap-5 text-[11px] text-zinc-600 pt-2 border-t border-zinc-200">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 bg-black inline-block"></span> Best-Fit (Selected)</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 hatch-pattern border border-black inline-block"></span> Worst-Fit (Pathological)</span>
           </div>
         </div>
 
         <!-- Database OOM Failures -->
-        <div class="bg-[#121622] border border-slate-800 rounded-md p-4 space-y-3">
+        <div class="border border-black p-4 space-y-3 bg-white">
           <div class="flex justify-between items-center text-xs">
-            <span class="font-bold text-slate-200">FIGURE 1B: ALLOCATION FAILURES (DATABASE CHURN)</span>
-            <span class="text-slate-500 text-[11px]">Out-of-Memory Stalls</span>
+            <span class="font-bold text-black">FIGURE 1B: ALLOCATION FAILURES (DATABASE CHURN)</span>
+            <span class="text-zinc-500 text-[11px]">Out-of-Memory Stalls</span>
           </div>
-          <div class="text-xs text-slate-400">Best-Fit restricts OOM failures to 271, achieving a **70.0% failure reduction** over Worst-Fit (905 failures) and **53.1% reduction** over Next-Fit (578 failures).</div>
+          <div class="text-xs text-zinc-700">Best-Fit restricts OOM failures to 271, achieving a <strong>70.0% failure reduction</strong> over Worst-Fit (905 failures) and <strong>53.1% reduction</strong> over Next-Fit (578 failures).</div>
 
           <div class="space-y-2.5 pt-2 text-xs">
             <div>
-              <div class="flex justify-between mb-1"><span>Best-Fit (Selected)</span><span class="text-blue-400 font-bold">271 failures</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 29.9%" class="bg-blue-600 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>Best-Fit (Selected)</span><span class="font-bold text-black">271 failures</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 29.9%" class="bg-black h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-1"><span>First-Fit (Linear)</span><span class="text-slate-300">349 failures</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 38.5%" class="bg-slate-600 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>First-Fit (Linear)</span><span class="text-zinc-700">349 failures</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 38.5%" class="bg-zinc-600 h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-1"><span>Next-Fit (Roving Pointer)</span><span class="text-amber-400">578 failures</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 63.8%" class="bg-amber-600 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>Next-Fit (Roving Pointer)</span><span class="text-zinc-700">578 failures</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 63.8%" class="hatch-pattern h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-1"><span>Worst-Fit (Max-Free)</span><span class="text-rose-400">905 failures</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 100.0%" class="bg-rose-700 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>Worst-Fit (Max-Free)</span><span class="font-bold text-black">905 failures</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 100.0%" class="hatch-light h-full"></div></div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Grid 2: Multi-Horizon Forecasting Accuracy & The Horizon Crossover Effect -->
-      <div class="bg-[#121622] border border-slate-800 rounded-md p-4 space-y-3">
+      <div class="border border-black p-4 space-y-3 bg-white">
         <div class="flex justify-between items-center text-xs">
           <div>
-            <span class="font-bold text-slate-200">FIGURE 2: MULTI-HORIZON ERROR TRAJECTORY & THE HORIZON CROSSOVER EFFECT</span>
-            <span class="text-slate-500 text-[11px] block mt-0.5">Persistence baseline error multiplies by 10.6x at t+30; Random Forest and TCN models sustain superior long-range forecasting.</span>
+            <span class="font-bold text-black">FIGURE 2: MULTI-HORIZON ERROR TRAJECTORY & THE HORIZON CROSSOVER EFFECT</span>
+            <span class="text-zinc-600 text-[11px] block mt-0.5">Persistence baseline error multiplies by 10.6x at t+30; Random Forest and TCN models sustain superior long-range forecasting.</span>
           </div>
-          <span class="text-xs text-blue-400">R² = 0.9906 @ t+10</span>
+          <span class="text-xs font-bold text-black">R² = 0.9906 @ t+10</span>
         </div>
 
         <!-- Comparative Error Table -->
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
+          <table class="table-sys">
             <thead>
-              <tr class="border-b border-slate-800 text-slate-400 text-[11px]">
-                <th class="py-2 px-3">Model Architecture</th>
-                <th class="py-2 px-3">Type</th>
-                <th class="py-2 px-3">MAE (t+1)</th>
-                <th class="py-2 px-3">MAE (t+5)</th>
-                <th class="py-2 px-3 font-semibold text-blue-400">MAE (t+10) [Control]</th>
-                <th class="py-2 px-3 font-semibold text-slate-200">MAE (t+30) [Long-Range]</th>
-                <th class="py-2 px-3">R² (t+10)</th>
+              <tr>
+                <th>Model Architecture</th>
+                <th>Type</th>
+                <th>MAE (t+1)</th>
+                <th>MAE (t+5)</th>
+                <th>MAE (t+10) [Control]</th>
+                <th>MAE (t+30) [Long-Range]</th>
+                <th>R² (t+10)</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 text-slate-300 text-[11px]">
-              <tr class="hover:bg-slate-800/30">
-                <td class="py-2 px-3 font-semibold text-slate-200">B1: Static Threshold (Persistence)</td>
-                <td class="py-2 px-3 text-slate-500">Heuristic</td>
-                <td class="py-2 px-3 text-emerald-400">0.0032</td>
-                <td class="py-2 px-3 text-emerald-400">0.0100</td>
-                <td class="py-2 px-3">0.0164</td>
-                <td class="py-2 px-3 text-rose-400 font-bold">0.0340 (+10.6x error)</td>
-                <td class="py-2 px-3">0.9888</td>
+            <tbody>
+              <tr>
+                <td class="font-semibold text-black">B1: Static Threshold (Persistence)</td>
+                <td class="text-zinc-600">Heuristic</td>
+                <td>0.0032</td>
+                <td>0.0100</td>
+                <td>0.0164</td>
+                <td class="font-bold">0.0340 (+10.6x error)</td>
+                <td>0.9888</td>
               </tr>
-              <tr class="hover:bg-slate-800/30">
-                <td class="py-2 px-3 font-semibold text-slate-200">B3: Linear Ridge Regression</td>
-                <td class="py-2 px-3 text-slate-500">Linear ML</td>
-                <td class="py-2 px-3">0.0036</td>
-                <td class="py-2 px-3">0.0107</td>
-                <td class="py-2 px-3 text-blue-400 font-bold">0.0167</td>
-                <td class="py-2 px-3">0.0309</td>
-                <td class="py-2 px-3 text-blue-400 font-bold">0.9906</td>
+              <tr>
+                <td class="font-semibold text-black">B3: Linear Ridge Regression</td>
+                <td class="text-zinc-600">Linear ML</td>
+                <td>0.0036</td>
+                <td>0.0107</td>
+                <td class="font-bold">0.0167</td>
+                <td>0.0309</td>
+                <td class="font-bold">0.9906</td>
               </tr>
-              <tr class="hover:bg-slate-800/30 bg-blue-950/20">
-                <td class="py-2 px-3 font-semibold text-blue-300">B4: Multi-Output Random Forest</td>
-                <td class="py-2 px-3 text-blue-400">Tree Ensemble</td>
-                <td class="py-2 px-3">0.0056</td>
-                <td class="py-2 px-3">0.0125</td>
-                <td class="py-2 px-3">0.0180</td>
-                <td class="py-2 px-3 text-emerald-400 font-bold">0.0300 (Lowest error)</td>
-                <td class="py-2 px-3">0.9897</td>
+              <tr class="bg-zinc-100 font-semibold">
+                <td class="text-black">B4: Multi-Output Random Forest (PREFRAG Engine)</td>
+                <td>Tree Ensemble</td>
+                <td>0.0056</td>
+                <td>0.0125</td>
+                <td>0.0180</td>
+                <td class="font-bold text-black underline">0.0300 (Lowest error)</td>
+                <td>0.9897</td>
               </tr>
-              <tr class="hover:bg-slate-800/30">
-                <td class="py-2 px-3 font-semibold text-slate-200">M1: Temporal LSTM (BPTT)</td>
-                <td class="py-2 px-3 text-slate-500">Deep Recurrent</td>
-                <td class="py-2 px-3">0.0073</td>
-                <td class="py-2 px-3">0.0153</td>
-                <td class="py-2 px-3">0.0218</td>
-                <td class="py-2 px-3">0.0347</td>
-                <td class="py-2 px-3">0.9852</td>
+              <tr>
+                <td class="font-semibold text-black">M1: Temporal LSTM (BPTT)</td>
+                <td class="text-zinc-600">Deep Recurrent</td>
+                <td>0.0073</td>
+                <td>0.0153</td>
+                <td>0.0218</td>
+                <td>0.0347</td>
+                <td>0.9852</td>
               </tr>
-              <tr class="hover:bg-slate-800/30">
-                <td class="py-2 px-3 font-semibold text-slate-200">M3: Temporal TCN (Dilated Conv1D)</td>
-                <td class="py-2 px-3 text-slate-500">Deep Causal Conv</td>
-                <td class="py-2 px-3">0.0087</td>
-                <td class="py-2 px-3">0.0149</td>
-                <td class="py-2 px-3">0.0208</td>
-                <td class="py-2 px-3 text-blue-400 font-semibold">0.0343</td>
-                <td class="py-2 px-3">0.9880</td>
+              <tr>
+                <td class="font-semibold text-black">M3: Temporal TCN (Dilated Conv1D)</td>
+                <td class="text-zinc-600">Deep Causal Conv</td>
+                <td>0.0087</td>
+                <td>0.0149</td>
+                <td>0.0208</td>
+                <td>0.0343</td>
+                <td>0.9880</td>
               </tr>
             </tbody>
           </table>
@@ -489,59 +649,59 @@
       </div>
 
       <!-- Grid 3: Closed-Loop Policy Regimes (E1 - E5) Comparison -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <!-- Severe Episodes Reduction -->
-        <div class="bg-[#121622] border border-slate-800 rounded-md p-4 space-y-3">
+        <div class="border border-black p-4 space-y-3 bg-white">
           <div class="flex justify-between items-center text-xs">
-            <span class="font-bold text-slate-200">FIGURE 3A: SEVERE EPISODE SUPPRESSION (E1 - E5)</span>
-            <span class="text-slate-500 text-[11px]">Database Workload</span>
+            <span class="font-bold text-black">FIGURE 3A: SEVERE EPISODE SUPPRESSION (E1 - E5)</span>
+            <span class="text-zinc-500 text-[11px]">Database Workload</span>
           </div>
-          <div class="text-xs text-slate-400">Unmanaged memory suffers 9,070 severe fragmentation episodes ($F_1 \ge 0.40$). PREFRAG (E5) suppresses episodes by **85.39%** to 1,325.</div>
+          <div class="text-xs text-zinc-700">Unmanaged memory suffers 9,070 severe fragmentation episodes (F1 >= 0.40). PREFRAG (E5) suppresses episodes by <strong>85.39%</strong> to 1,325.</div>
 
           <div class="space-y-2 pt-1 text-xs">
             <div>
-              <div class="flex justify-between mb-0.5"><span>E5: PREFRAG (Cost-Aware)</span><span class="text-blue-400 font-bold">1,325 episodes (-85.4%)</span></div>
-              <div class="w-full bg-[#090b10] h-4 rounded overflow-hidden"><div style="width: 14.6%" class="bg-blue-600 h-full"></div></div>
+              <div class="flex justify-between mb-0.5"><span>E5: PREFRAG (Cost-Aware)</span><span class="font-bold text-black">1,325 episodes (-85.4%)</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 14.6%" class="bg-black h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-0.5"><span>E4: ML + Fixed Threshold</span><span class="text-purple-400 font-bold">1,282 episodes</span></div>
-              <div class="w-full bg-[#090b10] h-4 rounded overflow-hidden"><div style="width: 14.1%" class="bg-purple-600 h-full"></div></div>
+              <div class="flex justify-between mb-0.5"><span>E4: ML + Fixed Threshold</span><span class="text-zinc-800">1,282 episodes</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 14.1%" class="bg-zinc-700 h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-0.5"><span>E1: Reactive Baseline</span><span class="text-slate-300">1,216 episodes</span></div>
-              <div class="w-full bg-[#090b10] h-4 rounded overflow-hidden"><div style="width: 13.4%" class="bg-slate-600 h-full"></div></div>
+              <div class="flex justify-between mb-0.5"><span>E1: Reactive Baseline</span><span class="text-zinc-800">1,216 episodes</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 13.4%" class="bg-zinc-500 h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-0.5"><span>E2: Always-Proactive (Interval)</span><span class="text-amber-400">2,271 episodes</span></div>
-              <div class="w-full bg-[#090b10] h-4 rounded overflow-hidden"><div style="width: 25.0%" class="bg-amber-600 h-full"></div></div>
+              <div class="flex justify-between mb-0.5"><span>E2: Always-Proactive (Interval)</span><span class="text-zinc-800">2,271 episodes</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 25.0%" class="hatch-pattern h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-0.5"><span>E3: Unmanaged Baseline</span><span class="text-rose-400 font-bold">9,070 episodes</span></div>
-              <div class="w-full bg-[#090b10] h-4 rounded overflow-hidden"><div style="width: 100.0%" class="bg-rose-700 h-full"></div></div>
+              <div class="flex justify-between mb-0.5"><span>E3: Unmanaged Baseline</span><span class="font-bold text-black">9,070 episodes</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 100.0%" class="hatch-light h-full"></div></div>
             </div>
           </div>
         </div>
 
         <!-- Elimination of Overhead on Healthy Heaps -->
-        <div class="bg-[#121622] border border-slate-800 rounded-md p-4 space-y-3">
+        <div class="border border-black p-4 space-y-3 bg-white">
           <div class="flex justify-between items-center text-xs">
-            <span class="font-bold text-slate-200">FIGURE 3B: ZERO-OVERHEAD GATING ON HEALTHY HEAPS</span>
-            <span class="text-slate-500 text-[11px]">Scientific & Microservice</span>
+            <span class="font-bold text-black">FIGURE 3B: ZERO-OVERHEAD GATING ON HEALTHY HEAPS</span>
+            <span class="text-zinc-500 text-[11px]">Scientific & Microservice</span>
           </div>
-          <div class="text-xs text-slate-400">On healthy heaps, Always-Proactive blindly executes 333 compactions copying 3.2 GB of data. PREFRAG executes **0 compactions**, achieving **100% overhead elimination**.</div>
+          <div class="text-xs text-zinc-700">On healthy heaps, Always-Proactive blindly executes 333 compactions copying 3.2 GB of data. PREFRAG executes <strong>0 compactions</strong>, achieving <strong>100% overhead elimination</strong>.</div>
 
           <div class="grid grid-cols-2 gap-3 pt-2 text-xs">
-            <div class="bg-[#0b0d13] p-3 rounded border border-slate-800">
-              <span class="text-slate-500 text-[11px] block">E2: Always-Proactive</span>
-              <div class="text-lg font-bold text-amber-400 mt-1">333 Reorgs</div>
-              <div class="text-rose-400 text-xs mt-0.5">3,247.2 MB Migrated</div>
-              <div class="text-[10px] text-slate-500 mt-1">High bus thrashing overhead</div>
+            <div class="border border-black p-3 bg-zinc-50">
+              <span class="text-zinc-600 text-[11px] block">E2: Always-Proactive</span>
+              <div class="text-lg font-bold text-black mt-1">333 Reorgs</div>
+              <div class="text-black font-semibold text-xs mt-0.5">3,247.2 MB Migrated</div>
+              <div class="text-[10px] text-zinc-500 mt-1">Severe bus thrashing overhead</div>
             </div>
-            <div class="bg-[#0b0d13] p-3 rounded border border-blue-900/60">
-              <span class="text-blue-400 text-[11px] block font-semibold">E5: PREFRAG Optimizer</span>
-              <div class="text-lg font-bold text-blue-400 mt-1">0 Reorgs</div>
-              <div class="text-emerald-400 text-xs mt-0.5">0.0 MB (Zero Cost)</div>
-              <div class="text-[10px] text-slate-500 mt-1">100% Wasted Overhead Eliminated</div>
+            <div class="border border-black p-3 bg-white">
+              <span class="font-bold text-black text-[11px] block">E5: PREFRAG Optimizer</span>
+              <div class="text-lg font-bold text-black mt-1">0 Reorgs</div>
+              <div class="text-black font-semibold text-xs mt-0.5">0.0 MB (Zero Cost)</div>
+              <div class="text-[10px] text-zinc-600 mt-1">100% Wasted Overhead Avoided</div>
             </div>
           </div>
         </div>
@@ -555,75 +715,75 @@
     <div id="viewLiterature" class="hidden space-y-4 font-mono">
       
       <!-- Top Overview Banner -->
-      <div class="bg-[#121622] border border-slate-800 rounded-md p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div class="border border-black p-4 flex flex-wrap items-center justify-between gap-3 text-xs bg-white">
         <div>
-          <span class="font-bold text-slate-100 text-sm block">SOTA_LITERATURE_BENCHMARK_MATRIX</span>
-          <span class="text-slate-400 text-xs">Comparing PREFRAG against published memory management architectures from top-tier systems venues (ASPLOS, OSDI, SOSP, USENIX ATC, MCSoC).</span>
+          <span class="font-bold text-black text-sm block">SOTA_LITERATURE_BENCHMARK_MATRIX</span>
+          <span class="text-zinc-600 text-xs">Comparing PREFRAG against published memory management architectures from top-tier systems venues (ASPLOS, OSDI, SOSP, USENIX ATC, MCSoC).</span>
         </div>
-        <span class="px-2.5 py-1 rounded border border-blue-900/60 bg-blue-950/40 text-blue-300">
+        <span class="px-2 py-0.5 border border-black bg-zinc-50 text-black text-[11px]">
           24 Peer-Reviewed Citations
         </span>
       </div>
 
       <!-- Literature Performance Bar Charts -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         
         <!-- Severe Stall / Fragmentation Reduction % -->
-        <div class="bg-[#121622] border border-slate-800 rounded-md p-4 space-y-3">
+        <div class="border border-black p-4 space-y-3 bg-white">
           <div class="flex justify-between items-center text-xs">
-            <span class="font-bold text-slate-200">FIGURE 4A: SEVERE STALL & FRAGMENTATION REDUCTION (%)</span>
-            <span class="text-slate-500 text-[11px]">Reported Efficacy</span>
+            <span class="font-bold text-black">FIGURE 4A: SEVERE STALL & FRAGMENTATION REDUCTION (%)</span>
+            <span class="text-zinc-500 text-[11px]">Reported Efficacy</span>
           </div>
-          <div class="text-xs text-slate-400">Comparing PREFRAG against Linux `kcompactd`, GMLake (ASPLOS '24), and MLDPBS (MCSoC '24) on high-churn memory workloads.</div>
+          <div class="text-xs text-zinc-700">Comparing PREFRAG against Linux `kcompactd`, GMLake (ASPLOS '24), and MLDPBS (MCSoC '24) on high-churn memory workloads.</div>
 
           <div class="space-y-2.5 pt-2 text-xs">
             <div>
-              <div class="flex justify-between mb-1"><span>PREFRAG (This Work)</span><span class="text-blue-400 font-bold">85.39% reduction</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 85.39%" class="bg-blue-600 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>PREFRAG (This Work)</span><span class="font-bold text-black">85.39% reduction</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 85.39%" class="bg-black h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-1"><span>Linux kcompactd [Kernel 5.9+]</span><span class="text-emerald-400 font-bold">78.20% reduction</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 78.20%" class="bg-emerald-600 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>Linux kcompactd [Kernel 5.9+]</span><span class="text-zinc-800">78.20% reduction</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 78.20%" class="bg-zinc-700 h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-1"><span>GMLake [ASPLOS 2024]</span><span class="text-sky-400 font-bold">33.00% reduction</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 33.00%" class="bg-sky-600 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>GMLake [ASPLOS 2024]</span><span class="text-zinc-800">33.00% reduction</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 33.00%" class="hatch-pattern h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-1"><span>MLDPBS [IEEE MCSoC 2024]</span><span class="text-orange-400 font-bold">28.00% reduction</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 28.00%" class="bg-orange-600 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>MLDPBS [IEEE MCSoC 2024]</span><span class="text-zinc-800">28.00% reduction</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 28.00%" class="hatch-light h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-1"><span>Traditional Reactive Allocator</span><span class="text-slate-500">0.00% (No proactive mitigation)</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 2.0%" class="bg-slate-700 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>Traditional Reactive Allocator</span><span class="text-zinc-500">0.00% (No proactive mitigation)</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 2.0%" class="bg-zinc-200 h-full"></div></div>
             </div>
           </div>
         </div>
 
         <!-- Unnecessary Migration Overhead on Healthy Workloads -->
-        <div class="bg-[#121622] border border-slate-800 rounded-md p-4 space-y-3">
+        <div class="border border-black p-4 space-y-3 bg-white">
           <div class="flex justify-between items-center text-xs">
-            <span class="font-bold text-slate-200">FIGURE 4B: WASTED MIGRATION DATA ON HEALTHY HEAPS (MB)</span>
-            <span class="text-slate-500 text-[11px]">Lower is Better</span>
+            <span class="font-bold text-black">FIGURE 4B: WASTED MIGRATION DATA ON HEALTHY HEAPS (MB)</span>
+            <span class="text-zinc-500 text-[11px]">Lower is Better</span>
           </div>
-          <div class="text-xs text-slate-400">Comparing background CPU & bus thrashing. Always-Proactive and aggressive Linux watermarks copy gigabytes of data; PREFRAG achieves **zero wasted migration**.</div>
+          <div class="text-xs text-zinc-700">Comparing background CPU & bus thrashing. Always-Proactive and aggressive Linux watermarks copy gigabytes of data; PREFRAG achieves <strong>zero wasted migration</strong>.</div>
 
           <div class="space-y-2.5 pt-2 text-xs">
             <div>
-              <div class="flex justify-between mb-1"><span>Always-Proactive (Interval)</span><span class="text-rose-400 font-bold">3,247 MB wasted</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 100.0%" class="bg-rose-700 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>Always-Proactive (Interval)</span><span class="font-bold text-black">3,247 MB wasted</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 100.0%" class="hatch-pattern h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-1"><span>Linux kcompactd (Proactiveness=100)</span><span class="text-amber-400 font-bold">1,840 MB wasted</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 56.7%" class="bg-amber-600 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>Linux kcompactd (Proactiveness=100)</span><span class="text-zinc-800">1,840 MB wasted</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 56.7%" class="bg-zinc-700 h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-1"><span>PARL [J. Sys. Arch. 2025]</span><span class="text-purple-400">720 MB wasted</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 22.2%" class="bg-purple-600 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>PARL [J. Sys. Arch. 2025]</span><span class="text-zinc-800">720 MB wasted</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 22.2%" class="bg-zinc-500 h-full"></div></div>
             </div>
             <div>
-              <div class="flex justify-between mb-1"><span>PREFRAG (This Work)</span><span class="text-blue-400 font-bold">0.0 MB (Zero Thrashing)</span></div>
-              <div class="w-full bg-[#090b10] h-5 rounded overflow-hidden"><div style="width: 1.0%" class="bg-blue-600 h-full"></div></div>
+              <div class="flex justify-between mb-1"><span>PREFRAG (This Work)</span><span class="font-bold text-black">0.0 MB (Zero Thrashing)</span></div>
+              <div class="w-full border border-black h-4 bg-white"><div style="width: 1.0%" class="bg-black h-full"></div></div>
             </div>
           </div>
         </div>
@@ -631,70 +791,70 @@
       </div>
 
       <!-- Architectural Capabilities Comparison Table -->
-      <div class="bg-[#121622] border border-slate-800 rounded-md p-4 space-y-3">
+      <div class="border border-black p-4 space-y-3 bg-white">
         <div class="flex justify-between items-center text-xs">
-          <span class="font-bold text-slate-200">TABLE: ARCHITECTURAL SYSTEMS CAPABILITY MATRIX</span>
-          <span class="text-slate-500 text-[11px]">System Design Scope</span>
+          <span class="font-bold text-black">TABLE: ARCHITECTURAL SYSTEMS CAPABILITY MATRIX</span>
+          <span class="text-zinc-500 text-[11px]">Systems Venue Classification</span>
         </div>
 
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
+          <table class="table-sys">
             <thead>
-              <tr class="border-b border-slate-800 text-slate-400 text-[11px]">
-                <th class="py-2.5 px-3">System / Framework</th>
-                <th class="py-2.5 px-3">Venue & Year</th>
-                <th class="py-2.5 px-3">Target Domain</th>
-                <th class="py-2.5 px-3">Proactive ML Horizon</th>
-                <th class="py-2.5 px-3">Cost-Benefit Gating</th>
-                <th class="py-2.5 px-3">Arbitrary Variable Sizes</th>
-                <th class="py-2.5 px-3">Overhead on Idle/Healthy</th>
+              <tr>
+                <th>System / Framework</th>
+                <th>Venue & Year</th>
+                <th>Target Domain</th>
+                <th>Proactive ML Horizon</th>
+                <th>Cost-Benefit Gating</th>
+                <th>Arbitrary Variable Sizes</th>
+                <th>Overhead on Idle/Healthy</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800/60 text-slate-300 text-[11px]">
-              <tr class="hover:bg-slate-800/30">
-                <td class="py-2 px-3 font-semibold text-slate-200">Linux kcompactd</td>
-                <td class="py-2 px-3 text-slate-500">Kernel 5.9+</td>
-                <td class="py-2 px-3">OS Physical Pages</td>
-                <td class="py-2 px-3 text-rose-400">None (Static Watermark)</td>
-                <td class="py-2 px-3 text-rose-400">No</td>
-                <td class="py-2 px-3 text-slate-400">Power-of-2 Orders</td>
-                <td class="py-2 px-3 text-amber-400">High (Thrashing on proactiveness=100)</td>
+            <tbody>
+              <tr>
+                <td class="font-semibold text-black">Linux kcompactd</td>
+                <td class="text-zinc-600">Kernel 5.9+</td>
+                <td>OS Physical Pages</td>
+                <td>None (Static Watermark)</td>
+                <td>No</td>
+                <td>Power-of-2 Orders</td>
+                <td>High (Thrashing on proactiveness=100)</td>
               </tr>
-              <tr class="hover:bg-slate-800/30">
-                <td class="py-2 px-3 font-semibold text-slate-200">GMLake</td>
-                <td class="py-2 px-3 text-slate-500">ASPLOS 2024</td>
-                <td class="py-2 px-3">GPU DL Heaps</td>
-                <td class="py-2 px-3 text-rose-400">None (Reactive on OOM)</td>
-                <td class="py-2 px-3 text-rose-400">No</td>
-                <td class="py-2 px-3 text-emerald-400">Yes (CUDA VMM)</td>
-                <td class="py-2 px-3 text-slate-400">Medium (Page fault traps)</td>
+              <tr>
+                <td class="font-semibold text-black">GMLake</td>
+                <td class="text-zinc-600">ASPLOS 2024</td>
+                <td>GPU DL Heaps</td>
+                <td>None (Reactive on OOM)</td>
+                <td>No</td>
+                <td>Yes (CUDA VMM)</td>
+                <td>Medium (Page fault traps)</td>
               </tr>
-              <tr class="hover:bg-slate-800/30">
-                <td class="py-2 px-3 font-semibold text-slate-200">PagedAttention (vLLM)</td>
-                <td class="py-2 px-3 text-slate-500">SOSP 2023</td>
-                <td class="py-2 px-3">LLM KV Caches</td>
-                <td class="py-2 px-3 text-rose-400">None (Fixed Paging)</td>
-                <td class="py-2 px-3 text-rose-400">No</td>
-                <td class="py-2 px-3 text-rose-400">No (Fixed Block Tokens)</td>
-                <td class="py-2 px-3 text-emerald-400">Low (Table indirection)</td>
+              <tr>
+                <td class="font-semibold text-black">PagedAttention (vLLM)</td>
+                <td class="text-zinc-600">SOSP 2023</td>
+                <td>LLM KV Caches</td>
+                <td>None (Fixed Paging)</td>
+                <td>No</td>
+                <td>No (Fixed Block Tokens)</td>
+                <td>Low (Table indirection)</td>
               </tr>
-              <tr class="hover:bg-slate-800/30">
-                <td class="py-2 px-3 font-semibold text-slate-200">MLDPBS</td>
-                <td class="py-2 px-3 text-slate-500">IEEE MCSoC 2024</td>
-                <td class="py-2 px-3">Embedded Buddy Heaps</td>
-                <td class="py-2 px-3 text-slate-400">1-Step Classifier</td>
-                <td class="py-2 px-3 text-rose-400">No</td>
-                <td class="py-2 px-3 text-rose-400">Buddy Partitions Only</td>
-                <td class="py-2 px-3 text-slate-400">Low</td>
+              <tr>
+                <td class="font-semibold text-black">MLDPBS</td>
+                <td class="text-zinc-600">IEEE MCSoC 2024</td>
+                <td>Embedded Buddy Heaps</td>
+                <td>1-Step Classifier</td>
+                <td>No</td>
+                <td>Buddy Partitions Only</td>
+                <td>Low</td>
               </tr>
-              <tr class="hover:bg-slate-800/30 bg-blue-950/20 border-l-2 border-blue-500">
-                <td class="py-2.5 px-3 font-bold text-blue-300">PREFRAG (This Work)</td>
-                <td class="py-2.5 px-3 text-blue-400 font-semibold">2026 Framework</td>
-                <td class="py-2.5 px-3 font-semibold text-slate-100">General C/C++ Heaps</td>
-                <td class="py-2.5 px-3 text-emerald-400 font-bold">Multi-Horizon (t+1..t+30)</td>
-                <td class="py-2.5 px-3 text-emerald-400 font-bold">Yes (Argmax Benefit-Cost)</td>
-                <td class="py-2.5 px-3 text-emerald-400 font-bold">Arbitrary (Byte Contiguous)</td>
-                <td class="py-2.5 px-3 text-emerald-400 font-bold">Zero (100% Gated Avoidance)</td>
+              <tr class="bg-zinc-100 font-bold border-2 border-black">
+                <td class="text-black">PREFRAG (This Work)</td>
+                <td>2026 Framework</td>
+                <td>General C/C++ Heaps</td>
+                <td>Multi-Horizon (t+1..t+30)</td>
+                <td>Yes (Argmax Benefit-Cost)</td>
+                <td>Arbitrary (Byte Contiguous)</td>
+                <td>Zero (100% Gated Avoidance)</td>
               </tr>
             </tbody>
           </table>
@@ -705,8 +865,8 @@
 
   </main>
 
-  <!-- Clean Sub-footer -->
-  <footer class="border-t border-slate-800/80 bg-[#0f1219] py-2 px-5 text-center text-xs font-mono text-slate-500">
+  <!-- Clean Academic Footer -->
+  <footer class="border-t border-black bg-white py-2 px-6 text-center text-xs font-mono text-zinc-600">
     PREFRAG Framework — Predictive & Cost-Aware Memory Reorganization (VIT Vellore)
   </footer>
 
@@ -715,16 +875,17 @@
     let playTimer = null;
     let currentCapacity = 1024 * 1024;
 
-    const TAG_COLORS = {
-      'session_cache': 'bg-sky-700/80 border-sky-600',
-      'query_plan': 'bg-teal-700/80 border-teal-600',
-      'db_page_buffer': 'bg-blue-700/80 border-blue-600',
-      'temp_table': 'bg-indigo-700/80 border-indigo-600',
-      'frag_seed_A': 'bg-slate-600 border-slate-500',
-      'frag_seed_B': 'bg-slate-700 border-slate-600',
-      'test_payload': 'bg-violet-700/80 border-violet-600',
-      'tensor_batch': 'bg-cyan-700/80 border-cyan-600',
-      'default': 'bg-slate-700 border-slate-600'
+    // Academic monochrome hatch and grayscale fills for blocks
+    const TAG_PATTERNS = {
+      'session_cache': 'hatch-pattern',
+      'query_plan': 'bg-zinc-400',
+      'db_page_buffer': 'hatch-light',
+      'temp_table': 'bg-zinc-600',
+      'frag_seed_A': 'hatch-pattern',
+      'frag_seed_B': 'bg-zinc-800',
+      'test_payload': 'bg-black text-white',
+      'tensor_batch': 'hatch-light',
+      'default': 'hatch-pattern'
     };
 
     function switchView(viewName) {
@@ -763,18 +924,23 @@
       document.getElementById('statTick').innerText = state.tick;
       document.getElementById('statTotalCap').innerText = `${state.total_capacity_kb} KB`;
 
+      // Update Top Summary Box (matching compiler screenshot)
+      document.getElementById('tickSummaryHeading').innerText = `WHAT HAPPENED IN TICK ${state.tick}`;
+      const pauseMs = state.last_compaction ? state.last_compaction.pause_ms : 0;
+      document.getElementById('tickSummarySteps').innerText = `${state.event_log.length} events logged · ${pauseMs} ms pause`;
+
       const f1 = state.snapshot.f1_largest_free_ratio;
       document.getElementById('f1Value').innerText = f1.toFixed(4);
       
       const f1Badge = document.getElementById('f1Badge');
       if (f1 >= 0.60) {
-        f1Badge.className = 'px-1 rounded text-[10px] bg-rose-950 text-rose-400 border border-rose-800';
+        f1Badge.className = 'text-[10px] px-1 py-0.5 border border-black bg-black text-white font-bold';
         f1Badge.innerText = 'CRITICAL';
       } else if (f1 >= 0.35) {
-        f1Badge.className = 'px-1 rounded text-[10px] bg-amber-950 text-amber-400 border border-amber-800';
+        f1Badge.className = 'text-[10px] px-1 py-0.5 border border-black bg-zinc-200 text-black font-semibold';
         f1Badge.innerText = 'ELEVATED';
       } else {
-        f1Badge.className = 'px-1 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700';
+        f1Badge.className = 'text-[10px] px-1 py-0.5 border border-black bg-white text-black font-semibold';
         f1Badge.innerText = 'NOMINAL';
       }
 
@@ -785,10 +951,40 @@
       document.getElementById('predT10').innerText = state.predictions.t10.toFixed(3);
       document.getElementById('predT30').innerText = state.predictions.t30.toFixed(3);
 
-      document.getElementById('freeBlocksCount').innerText = state.snapshot.free_block_count;
-      document.getElementById('largestFreeVal').innerText = Math.round(state.snapshot.largest_free_block / 1024);
-      document.getElementById('utilVal').innerText = `${(state.snapshot.memory_utilization * 100).toFixed(1)}%`;
+      const freeBlocks = state.snapshot.free_block_count;
+      const largestFreeKb = Math.round(state.snapshot.largest_free_block / 1024);
+      const usedPct = (state.snapshot.memory_utilization * 100);
+      const freeKb = Math.round((state.total_capacity * (1 - state.snapshot.memory_utilization)) / 1024);
+      const usedKb = Math.round((state.total_capacity * state.snapshot.memory_utilization) / 1024);
+
+      document.getElementById('freeBlocksCount').innerText = freeBlocks;
+      document.getElementById('largestFreeVal').innerText = largestFreeKb;
+      document.getElementById('utilVal').innerText = `${usedPct.toFixed(1)}%`;
       document.getElementById('compactionsCount').innerText = state.stats.total_compactions;
+
+      // Update Summary Bar
+      document.getElementById('summaryBarFree').style.width = `${Math.max(0, 100 - usedPct)}%`;
+      document.getElementById('summaryBarAlloc').style.width = `${usedPct}%`;
+      document.getElementById('summaryFreeText').innerText = `${freeKb} KB free (${freeBlocks} holes)`;
+      document.getElementById('summaryAllocText').innerText = `${usedKb} KB allocated`;
+      document.getElementById('summaryContigText').innerText = `${largestFreeKb} KB max contig`;
+
+      // Update Summary Bullets
+      const bullets = document.getElementById('tickSummaryBullets');
+      bullets.innerHTML = '';
+      const b1 = document.createElement('li');
+      b1.innerText = `• Allocator policy [${state.allocator_policy || 'best_fit'}] managing ${state.blocks.length} active heap segments.`;
+      const b2 = document.createElement('li');
+      b2.innerText = `• Multi-horizon predictive forecaster: F1(t+10) = ${predT10.toFixed(4)} (Threshold: 0.60).`;
+      const b3 = document.createElement('li');
+      if (state.last_evaluation && state.last_evaluation.should_intervene) {
+        b3.innerHTML = `• <strong class="text-black">Optimizer intervention triggered:</strong> Expected Benefit ${state.last_evaluation.expected_benefit} > Cost ${state.last_evaluation.compaction_cost} (Net Utility: +${state.last_evaluation.net_benefit}).`;
+      } else {
+        b3.innerText = `• Optimizer status: Net utility negative or zero; defragmentation gated to prevent bus thrashing.`;
+      }
+      bullets.appendChild(b1);
+      bullets.appendChild(b2);
+      bullets.appendChild(b3);
 
       renderHeapMap(state.blocks, state.total_capacity);
       renderTelemetryChart(state.history);
@@ -801,10 +997,10 @@
         
         const decBadge = document.getElementById('decisionBadge');
         if (state.last_evaluation.should_intervene) {
-          decBadge.className = 'px-1.5 py-0.5 rounded text-[10px] bg-blue-900/60 text-blue-300 border border-blue-600 font-semibold';
+          decBadge.className = 'px-1.5 py-0.5 border border-black text-[10px] bg-black text-white font-bold';
           decBadge.innerText = 'INTERVENE (B > C)';
         } else {
-          decBadge.className = 'px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 border border-slate-700';
+          decBadge.className = 'px-1.5 py-0.5 border border-black text-[10px] bg-white text-black font-semibold';
           decBadge.innerText = 'IDLE / MONITOR';
         }
       }
@@ -829,23 +1025,23 @@
         const blockEl = document.createElement('div');
         blockEl.style.width = `${widthPct}%`;
         blockEl.style.height = '100%';
-        blockEl.className = 'relative cursor-pointer transition-colors ';
+        blockEl.className = 'relative cursor-pointer ';
 
         if (b.is_free) {
-          blockEl.className += 'hole-hatch';
+          blockEl.className += 'hole-pattern border-r border-black';
         } else {
-          const colorClass = TAG_COLORS[b.tag] || TAG_COLORS['default'];
-          blockEl.className += `${colorClass} border-r border-slate-900`;
+          const patternClass = TAG_PATTERNS[b.tag] || TAG_PATTERNS['default'];
+          blockEl.className += `${patternClass} border-r border-black`;
         }
 
         blockEl.addEventListener('mouseenter', () => {
           const inspector = document.getElementById('inspectorInfo');
           const typeStr = b.is_free ? 'FREE HOLE (Fragmentation)' : `ALLOCATED [${b.tag || 'Payload'}]`;
           inspector.innerHTML = `
-            <span>State: <b class="${b.is_free ? 'text-amber-400' : 'text-blue-400'}">${typeStr}</b></span> |
-            <span>Offset: <b>0x${b.start.toString(16).toUpperCase().padStart(6, '0')} – 0x${b.end.toString(16).toUpperCase().padStart(6, '0')}</b></span> |
-            <span>Size: <b>${b.size_kb} KB</b> (${b.size} B)</span>
-            ${b.alloc_id ? `| <span>AllocID: <b>#${b.alloc_id}</b></span>` : ''}
+            <span>Type: <strong>${typeStr}</strong></span> |
+            <span>Offset: <strong>0x${b.start.toString(16).toUpperCase().padStart(6, '0')} – 0x${b.end.toString(16).toUpperCase().padStart(6, '0')}</strong></span> |
+            <span>Size: <strong>${b.size_kb} KB</strong> (${b.size} B)</span>
+            ${b.alloc_id ? `| <span>AllocID: <strong>#${b.alloc_id}</strong></span>` : ''}
           `;
         });
 
@@ -856,7 +1052,7 @@
     function renderTelemetryChart(history) {
       const svg = document.getElementById('telemetryChart');
       if (!history || history.length < 2) {
-        svg.innerHTML = '<text x="50%" y="50%" fill="#475569" font-size="11" font-family="monospace" text-anchor="middle">Awaiting execution steps...</text>';
+        svg.innerHTML = '<text x="50%" y="50%" fill="#71717a" font-size="11" font-family="monospace" text-anchor="middle">Awaiting execution steps...</text>';
         return;
       }
 
@@ -883,14 +1079,14 @@
       });
 
       svg.innerHTML = `
-        <line x1="${pad}" y1="${thresholdY}" x2="${W - pad}" y2="${thresholdY}" stroke="#ef4444" stroke-dasharray="3,3" stroke-width="1" />
-        <text x="${W - pad + 4}" y="${thresholdY + 3}" fill="#ef4444" font-size="9" font-family="monospace">0.60</text>
-        <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H - pad}" stroke="#1e293b" stroke-width="1" />
-        <line x1="${pad}" y1="${H - pad}" x2="${W - pad}" y2="${H - pad}" stroke="#1e293b" stroke-width="1" />
-        <text x="${pad - 4}" y="${pad + 4}" fill="#64748b" font-size="9" font-family="monospace" text-anchor="end">1.0</text>
-        <text x="${pad - 4}" y="${H - pad + 3}" fill="#64748b" font-size="9" font-family="monospace" text-anchor="end">0.0</text>
-        <path d="${pathPred}" fill="none" stroke="#60a5fa" stroke-width="1.6" stroke-dasharray="3,3" />
-        <path d="${pathF1}" fill="none" stroke="#10b981" stroke-width="1.8" />
+        <line x1="${pad}" y1="${thresholdY}" x2="${W - pad}" y2="${thresholdY}" stroke="#000000" stroke-dasharray="2,2" stroke-width="1" />
+        <text x="${W - pad + 4}" y="${thresholdY + 3}" fill="#000000" font-size="9" font-family="monospace">0.60</text>
+        <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H - pad}" stroke="#000000" stroke-width="1" />
+        <line x1="${pad}" y1="${H - pad}" x2="${W - pad}" y2="${H - pad}" stroke="#000000" stroke-width="1" />
+        <text x="${pad - 4}" y="${pad + 4}" fill="#000000" font-size="9" font-family="monospace" text-anchor="end">1.0</text>
+        <text x="${pad - 4}" y="${H - pad + 3}" fill="#000000" font-size="9" font-family="monospace" text-anchor="end">0.0</text>
+        <path d="${pathPred}" fill="none" stroke="#71717a" stroke-width="1.6" stroke-dasharray="4,3" />
+        <path d="${pathF1}" fill="none" stroke="#000000" stroke-width="2.2" />
       `;
     }
 
@@ -901,20 +1097,20 @@
         const row = document.createElement('div');
         row.className = 'py-0.5 flex items-start gap-1.5 font-mono text-[11px]';
         
-        let tag = `<span class="text-slate-500">[T:${ev.tick}]</span>`;
+        let tag = `<span class="text-zinc-500">[T:${ev.tick}]</span>`;
         if (ev.is_compact) {
-          tag = `<span class="text-blue-400 font-semibold">[REORG]</span>`;
-          row.className += ' text-blue-200';
+          tag = `<span class="bg-black text-white px-1 font-bold">[REORG]</span>`;
+          row.className += ' font-semibold text-black';
         } else if (ev.is_inject) {
-          tag = `<span class="text-amber-400 font-semibold">[INJECT]</span>`;
-          row.className += ' text-amber-200';
+          tag = `<span class="border border-black px-1 font-bold">[INJECT]</span>`;
+          row.className += ' text-zinc-900';
         } else if (ev.is_error) {
-          tag = `<span class="text-rose-400 font-semibold">[OOM_ERR]</span>`;
-          row.className += ' text-rose-300';
+          tag = `<span class="border border-black bg-zinc-200 px-1 font-bold">[OOM_ERR]</span>`;
+          row.className += ' font-bold text-black';
         } else if (ev.type === 'ALLOC') {
-          tag = `<span class="text-emerald-400">[ALLOC]</span>`;
+          tag = `<span class="text-black font-semibold">[ALLOC]</span>`;
         } else if (ev.type === 'FREE') {
-          tag = `<span class="text-slate-400">[FREE]</span>`;
+          tag = `<span class="text-zinc-500">[FREE]</span>`;
         }
 
         row.innerHTML = `${tag} <span>${ev.msg}</span>`;
@@ -988,11 +1184,11 @@
       const text = document.getElementById('playText');
 
       if (isPlaying) {
-        btn.className = 'px-2.5 py-1.5 rounded border border-rose-800 bg-rose-950/60 text-rose-300 font-medium transition-colors';
+        btn.className = 'btn-sys-black';
         text.innerText = 'Pause Trace';
         playTimer = setInterval(() => stepSimulation(1), 300);
       } else {
-        btn.className = 'px-2.5 py-1.5 rounded border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-slate-200 font-medium transition-colors';
+        btn.className = 'btn-sys';
         text.innerText = 'Run Trace';
         clearInterval(playTimer);
       }

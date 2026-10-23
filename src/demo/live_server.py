@@ -11,7 +11,7 @@ import time
 import math
 import logging
 from typing import List, Dict, Any, Optional
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import numpy as np
 
 # Ensure root is in sys.path
@@ -428,11 +428,17 @@ ENGINE = LiveDemoEngine()
 
 
 class LiveDemoHTTPHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        # Print clean log message to reassure the user that requests are being served
+        sys.stdout.write(f"  [HTTP] {self.command} {self.path} -> {args[1] if len(args) > 1 else ''}\n")
+        sys.stdout.flush()
+
     def _send_json(self, data: Any, code: int = 200):
         body = json.dumps(data).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
@@ -444,6 +450,7 @@ class LiveDemoHTTPHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Connection", "close")
         self.end_headers()
 
     def do_GET(self):
@@ -455,6 +462,7 @@ class LiveDemoHTTPHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(content)))
+                self.send_header("Connection", "close")
                 self.end_headers()
                 self.wfile.write(content)
             else:
@@ -500,15 +508,20 @@ class LiveDemoHTTPHandler(BaseHTTPRequestHandler):
 
 def run_server(port: int = 8050):
     server_address = ("127.0.0.1", port)
-    httpd = HTTPServer(server_address, LiveDemoHTTPHandler)
-    print(f"\n=======================================================")
-    print(f"🚀 PREFRAG Live Memory Fragmentation Demo Server Running")
-    print(f"👉 Local URL: http://127.0.0.1:{port}")
-    print(f"=======================================================\n")
+    # Multi-threaded HTTP server ensures concurrent requests and persistent browser tabs never freeze
+    httpd = ThreadingHTTPServer(server_address, LiveDemoHTTPHandler)
+    print("\n" + "=" * 65)
+    print(" [ONLINE] PREFRAG Live Demo Server is listening")
+    print(f" [URL]    http://127.0.0.1:{port}")
+    print("=" * 65)
+    print(" Note: This terminal window stays active to serve requests.")
+    print(" View the dashboard in your browser at the URL above.")
+    print(" Press Ctrl+C in this window when you want to stop the server.\n")
+    sys.stdout.flush()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nShutting down demo server.")
+        print("\n[STOPPING] Shutting down demo server.")
         httpd.server_close()
 
 

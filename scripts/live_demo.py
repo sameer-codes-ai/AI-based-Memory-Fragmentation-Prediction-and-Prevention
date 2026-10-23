@@ -19,17 +19,23 @@ if ROOT_DIR not in sys.path:
 from src.demo.live_server import run_server
 
 
-def open_browser(url: str, delay: float = 0.8):
+def open_browser(url: str, delay: float = 0.6):
     def _open():
         time.sleep(delay)
-        print(f"Opening browser at: {url}")
-        webbrowser.open(url)
+        print(f" [BROWSER] Opening dashboard at: {url}")
+        sys.stdout.flush()
+        try:
+            webbrowser.open(url)
+        except Exception as e:
+            print(f" [BROWSER] Note: Could not auto-launch browser ({e}).")
+            print(f"           Please open {url} manually.")
+            sys.stdout.flush()
     t = threading.Thread(target=_open, daemon=True)
     t.start()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="PREFRAG Live Memory Fragmentation & Defragmentation Demo")
+    parser = argparse.ArgumentParser(description="PREFRAG Live Memory Fragmentation & Reorganization Demo")
     parser.add_argument("--port", type=int, default=8050, help="HTTP server port (default: 8050)")
     parser.add_argument("--no-browser", action="store_true", help="Do not automatically launch web browser")
     args = parser.parse_args()
@@ -37,12 +43,6 @@ def main():
     url = f"http://127.0.0.1:{args.port}"
     if not args.no_browser:
         open_browser(url)
-
-    print("\n" + "=" * 65)
-    print("   PREFRAG: Live Memory Fragmentation & Reorganization Demo")
-    print(f"   Listening on: {url}")
-    print("   Press Ctrl+C to terminate.")
-    print("=" * 65 + "\n")
 
     run_server(port=args.port)
 

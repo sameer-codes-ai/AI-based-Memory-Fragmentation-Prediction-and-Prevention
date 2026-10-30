@@ -25,4 +25,7 @@ os datasets/
 .DS_Store
 Thumbs.db
 
+# Plot & IDE Cache
+.mpl_cache/
+*/.mpl_cache/
 .ai/
